@@ -1,0 +1,69 @@
+{
+	"WiFi-AU": 
+		{
+			"name": "WiFi-AU",
+			"role": "default",
+			"type": "common",
+			"broadcast": "true",
+			"authentication": "WPA2",
+			"encryption": "AES",
+			"useOneX": "true",
+			"sharedKey": "",
+			"dot1XTemplateFilename": "dot1X.xml",
+			"default": "true"
+		},
+	"AU-VIP": 
+		{
+			"name": "AU-VIP",
+			"role": "VIP",
+			"type": "common",
+			"broadcast": "false",
+			"authentication": "WPA2",
+			"encryption": "AES",
+			"useOneX": "true",
+			"sharedKey": "",
+			"dot1XTemplateFilename": "dot1X.xml",
+			"default": "false"
+		},
+	"AU-Guest": 
+		{
+			"name": "AU-Guest",
+			"role": "guest",
+			"type": "common",
+			"broadcast": "true",
+			"authentication": "WPA2",
+			"encryption": "AES",
+			"useOneX": "true",
+			"sharedKey": "",
+			"dot1XTemplateFilename": "dot1X.xml",
+			"default": "true"
+		},
+	"AU-109-1": 
+		{
+			"name": "AU-109-1",
+			"role": "location",
+			"type": "room",
+			"broadcast": "true",
+			"authentication": "WPA2",
+			"encryption": "AES",
+			"useOneX": "true",
+			"sharedKey": "",
+			"dot1XTemplateFilename": "dot1X.xml",
+			"default": "false"
+		},
+	"AU-109-2": 
+		{
+			"name": "AU-109-2",
+			"role": "location",
+			"type": "room",
+			"broadcast": "true",
+			"authentication": "WPA2",
+			"encryption": "AES",
+			"useOneX": "true",
+			"sharedKey": "",
+			"dot1XTemplateFilename": "dot1X.xml",
+			"default": "false"
+		}
+
+
+}
