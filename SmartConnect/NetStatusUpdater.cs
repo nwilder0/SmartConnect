@@ -21,11 +21,11 @@ namespace SmartConnect
             this.main = main;
         }
 
-        public void run()
+        public void Run()
         {
             for (; ; )
             {
-                update();
+                Update();
                 if (updateInterval == 0)
                 {
                     break;
@@ -38,7 +38,7 @@ namespace SmartConnect
             }
         }
 
-        public void update()
+        public void Update()
         {
             Dictionary<String,int> blueSSIDs = new Dictionary<String,int>();
             String[] arrSSIDs = main.SSIDs;

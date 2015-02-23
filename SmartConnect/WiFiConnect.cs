@@ -105,9 +105,9 @@ namespace SmartConnect
 
         // not thread safe
         List<SCLink> lLinks;
-        public List<SCLink> Links
+        public SCLink[] Links
         {
-            get { lock (lLinks) { return new List<SCLink>(lLinks); } }
+            get { lock (lLinks) { return lLinks.ToArray(); } }
         }
 
         public WiFiConnect(Main frmMain)
@@ -120,7 +120,7 @@ namespace SmartConnect
             localSSIDs = new ConcurrentDictionary<string,SSID>();
             wClient = new WlanClient();
             
-            LoadConfig();
+            Load("all");
             Config8021X();
 
             int updateInterval=0, updateTimeout=300;
@@ -130,13 +130,13 @@ namespace SmartConnect
 
             updaterNetStatus = new NetStatusUpdater(20, this);
 
-            updateNetStatusThread = new Thread(updaterNetStatus.run);
+            updateNetStatusThread = new Thread(updaterNetStatus.Run);
 
             updateNetStatusThread.Start();
             
             updater = new Updater(updateInterval, updateTimeout, dConfig["serverIP"], dConfig["filenameTemplate"], this);
             
-            updateThread = new Thread(updater.run);
+            updateThread = new Thread(updater.Run);
 
             if (dFlags["autoUpdate"] && updateTimeout != 0)
             {
@@ -159,58 +159,73 @@ namespace SmartConnect
 
 
 
-        public void LoadConfig()
+        public void Load(String element)
         {
             // clear out the data structures for new data in case this is a Reload rather than 1st time load
-            dSSIDs.Clear();
-            dAPs.Clear();
-            lock(lLinks) lLinks.Clear();
-            dConfig.Clear();
-
-            try
+            
+            if (element.Equals("config") || element.Equals("all"))
             {
-                String jsonConfig = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig);
-
-                dConfig = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonConfig);
-
-                // load log file
-                log = new SCLog(dConfig["filenameError"], dConfig["filenameDebug"],
-                    Convert.ToBoolean(dConfig["sendErrors"]), Convert.ToBoolean(dConfig["enableDebug"]));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Early Error before log availability: " + ex.Message);
-            }
-
-            ValidateConfig();
-
-            try
-            {
-                // merge in updated server config file
-                UpdateConfig();
-
-                // read in links file
-                String jsonLinks = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameLinks"]);
-
-                // NEED: JSON format error handling
-                lock(lLinks) lLinks = JsonConvert.DeserializeObject<List<SCLink>>(jsonLinks);
-
-                // NEED: file error handling
-                String jsonAPs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameAPs"]);
-
-                // NEED: JSON format error handling
-                dAPs = JsonConvert.DeserializeObject<ConcurrentDictionary<String,AP>>(jsonAPs);
-
-                // NEED: file error handling
-                String jsonSSIDs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameSSIDs"]);
-
-                // NEED: JSON format error handling
-                dSSIDs = JsonConvert.DeserializeObject<ConcurrentDictionary<String,SSID>>(jsonSSIDs);
-                foreach (SSID ssid in dSSIDs.Values)
+                try
                 {
-                    ssid.setProfile();
-                }
+                    dConfig.Clear();
 
+                    String jsonConfig = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig);
+
+                    dConfig = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonConfig);
+
+                    // load log file
+                    log = new SCLog(dConfig["filenameError"], dConfig["filenameDebug"],
+                        Convert.ToBoolean(dConfig["sendErrors"]), Convert.ToBoolean(dConfig["enableDebug"]));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Early Error before log availability: " + ex.Message);
+                }
+                
+            }
+            
+            try
+            {
+                if (element.Equals("config") || element.Equals("all"))
+                {
+                    ValidateConfig();
+                    // merge in updated server config file
+                    UpdateConfig();
+                }
+                if (element.Equals("link") || element.Equals("all"))
+                {
+                    lock (lLinks) lLinks.Clear();
+
+                    // read in links file
+                    String jsonLinks = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameLinks"]);
+
+                    // NEED: JSON format error handling
+                    lock (lLinks) lLinks = JsonConvert.DeserializeObject<List<SCLink>>(jsonLinks);
+                    //update UI
+                    frmMain.TSSetLinks(Links);
+                }
+                if (element.Equals("ap") || element.Equals("all"))
+                {
+                    dAPs.Clear();
+                    // NEED: file error handling
+                    String jsonAPs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameAPs"]);
+
+                    // NEED: JSON format error handling
+                    dAPs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, AP>>(jsonAPs);
+                }
+                if (element.Equals("ssid") || element.Equals("all"))
+                {
+                    dSSIDs.Clear();
+                    // NEED: file error handling
+                    String jsonSSIDs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameSSIDs"]);
+
+                    // NEED: JSON format error handling
+                    dSSIDs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, SSID>>(jsonSSIDs);
+                    foreach (SSID ssid in dSSIDs.Values)
+                    {
+                        ssid.SetProfile();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -486,7 +501,7 @@ namespace SmartConnect
 
                     }
                 }
-                updaterNetStatus.update();
+                updaterNetStatus.Update();
             }
             else log.error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
         }
@@ -525,8 +540,9 @@ namespace SmartConnect
 
         public void Update()
         {
-            updater.update();
+            updater.Update();
         }
+
     }
 
 }

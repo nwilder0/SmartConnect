@@ -114,7 +114,7 @@ namespace SmartConnect
 
         }
 
-        public void setProfile()
+        public void SetProfile()
         {
             try
             {

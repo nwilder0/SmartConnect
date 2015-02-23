@@ -26,33 +26,39 @@ namespace SmartConnect
         {
             wifiConnect = new WiFiConnect(this);
             
-            // get a copy of the links data
-            List<SCLink> links = wifiConnect.Links;
-            
-            // loop through each link
-            int i = 0;
-            foreach (SCLink item in links)
+            LoadVisible();
+
+        }
+
+        public void TSSetLinks(SCLink[] aLinks)
+        {
+            if (pnlLinks.InvokeRequired) pnlLinks.Invoke(new Action<SCLink[]>(TSSetLinks), new Object[] { aLinks });
+            else
             {
-                //create a new label for the link
-                LinkLabel ll = new LinkLabel();
-                // text is the name or message that will be displayed
-                ll.Text = item.Text;
-                // this adds the url data to the message that will open the browser page when clicked
-                ll.Links.Add(new LinkLabel.Link(0, ll.Text.Length, item.Link));
-                // this adds a handler to the LinkLabel to run the URL just like opening something thru explorer
-                ll.LinkClicked += new LinkLabelLinkClickedEventHandler(eventHandlerLinkLabelClicked);
-                // each label needs a unique name
-                ll.Name = "llbl" + i++;
-                // sets the width to the max length, otherwise the label will be locked at the short default width
-                ll.Width = 300;
-                // add the new link label to the appropriate FlowLayoutPanel
-                pnlLinks.Controls.Add(ll);
+                foreach (Control c in pnlLinks.Controls)
+                {
+                    if (c.GetType().ToString().Equals("System.Windows.Forms.LinkLabel")) pnlLinks.Controls.Remove(c);
+                }
+                // loop through each link
+                int i = 0;
+                foreach (SCLink item in aLinks)
+                {
+                    //create a new label for the link
+                    LinkLabel ll = new LinkLabel();
+                    // text is the name or message that will be displayed
+                    ll.Text = item.Text;
+                    // this adds the url data to the message that will open the browser page when clicked
+                    ll.Links.Add(new LinkLabel.Link(0, ll.Text.Length, item.Link));
+                    // this adds a handler to the LinkLabel to run the URL just like opening something thru explorer
+                    ll.LinkClicked += new LinkLabelLinkClickedEventHandler(eventHandlerLinkLabelClicked);
+                    // each label needs a unique name
+                    ll.Name = "llbl" + i++;
+                    // sets the width to the max length, otherwise the label will be locked at the short default width
+                    ll.Width = 300;
+                    // add the new link label to the appropriate FlowLayoutPanel
+                    pnlLinks.Controls.Add(ll);
+                }
             }
-
-            cbAP.Items.AddRange(wifiConnect.APs);
-            
-            loadVisible();
-
         }
 
         public void TSSetConnectButton(String mesg)
@@ -107,7 +113,7 @@ namespace SmartConnect
             }
         }
 
-        private void loadVisible()
+        private void LoadVisible()
         {
             Boolean bNoLinks = Convert.ToBoolean(wifiConnect.Setting("disableLinks"));
             Boolean bNoBandwidth = Convert.ToBoolean(wifiConnect.Setting("disableBandwidth"));
@@ -141,7 +147,7 @@ namespace SmartConnect
         {
             frmSettings winSettings = new frmSettings(wifiConnect);
             winSettings.ShowDialog();
-            loadVisible();
+            LoadVisible();
         }
 
         private void pnlTitle_MouseDown(object sender, MouseEventArgs e)
