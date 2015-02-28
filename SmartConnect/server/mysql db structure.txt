@@ -1,0 +1,27 @@
+net_session
+	id
+	logged
+	mac
+	ip
+	os
+	connected_ssid
+	connected_ap
+	connected_time
+	
+net_data
+	id
+	session
+	ap
+	signal
+	
+error
+	id
+	logged
+	message
+	mac
+	ip
+	os
+	connected_ssid
+	connected_ap
+	connected_time
+	

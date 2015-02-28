@@ -25,7 +25,7 @@ namespace SmartConnect
             this.main = main;
             
             sendErrors = new WebClient();
-            String strURL = "http://" + serverIP + "/send_errors.php";
+            String strURL = "http://" + serverIP + "/log.php";
             urlSend = new Uri(strURL);
             
         }
@@ -58,8 +58,10 @@ namespace SmartConnect
         {
             if (!sendErrors.IsBusy)
             {
-                String safeJsonErrors = WebUtility.UrlEncode("json=" + jsonErrors);
-                String results = sendErrors.UploadString(urlSend, safeJsonErrors);
+                String postData = "json=" + jsonErrors + "&type=error";
+                postData += "&" + main.GetPostSessionData();
+                String safePostData = WebUtility.UrlEncode(postData);
+                String results = sendErrors.UploadString(urlSend, safePostData);
                 try
                 {
                     int success = Convert.ToInt32(results);

@@ -506,6 +506,35 @@ namespace SmartConnect
             else log.error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
         }
 
+        public String GetPostSessionData()
+        {
+            String postData = "";
+            String connectedSSID = "";
+            String connectedAP = "";
+            String ip = "";
+            String connectedTime = "";
+            String os = Environment.OSVersion.ToString();
+            String mac = "";
+
+            WlanClient.WlanInterface iface = GetWirelessConnection();
+
+            lock (iface)
+            {
+                mac = iface.NetworkInterface.GetPhysicalAddress().ToString();
+
+                if (iface.InterfaceState == Wlan.WlanInterfaceState.Connected)
+                {
+                    connectedSSID = iface.CurrentConnection.wlanAssociationAttributes.dot11Ssid.SSID.ToString();
+                    connectedAP = iface.CurrentConnection.wlanAssociationAttributes.Dot11Bssid.ToString();
+                    connectedTime = iface.NetworkInterface.GetIPProperties().UnicastAddresses[0].DhcpLeaseLifetime.ToString();
+                    ip = iface.NetworkInterface.GetIPProperties().UnicastAddresses[0].Address.ToString();
+                }
+            }
+            postData = "mac=" + mac + "&ip=" + ip + "&os=" + os + "&connected_ssid=" + connectedSSID + "&connected_ap=" + connectedAP + "&connected_time=" + connectedTime;
+
+            return postData;
+        }
+
         public void Save()
         {
             try

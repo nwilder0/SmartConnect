@@ -39,6 +39,16 @@ namespace SmartConnect
 
 
             qError = new ConcurrentQueue<String>();
+
+            /*
+            qError.Enqueue("blah1");
+            qError.Enqueue("blah2");
+            qError.Enqueue("blah blah blah3");
+
+            String jError = JsonConvert.SerializeObject(qError, Formatting.Indented);
+            MessageBox.Show(jError);
+             */
+             
         }
 
         public void error(String mesg)
