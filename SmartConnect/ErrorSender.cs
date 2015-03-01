@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Net;
+using Newtonsoft.Json;
 
 
 namespace SmartConnect
@@ -30,7 +31,7 @@ namespace SmartConnect
             
         }
 
-        public void run()
+        public void Run()
         {
            for (; ; )
            {
@@ -46,7 +47,7 @@ namespace SmartConnect
                {
                    if(Monitor.TryEnter(main.Log.ErrorQueueNotEmpty))
                    {
-                       send(jsonErrors);
+                       Send(jsonErrors);
                        Monitor.Exit(main.Log.ErrorQueueNotEmpty);
                    }
                }
@@ -54,22 +55,36 @@ namespace SmartConnect
            }
         }
 
-        public void send(String jsonErrors)
+        public void Send(String jsonErrors)
         {
             if (!sendErrors.IsBusy)
             {
-                String postData = "json=" + jsonErrors + "&type=error";
+                String postData = "json=" + WebUtility.UrlEncode(jsonErrors) + "&type=error";
                 postData += "&" + main.GetPostSessionData();
-                String safePostData = WebUtility.UrlEncode(postData);
-                String results = sendErrors.UploadString(urlSend, safePostData);
+
+                String results = "";
+
+                try
+                {
+                    sendErrors.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                    results = sendErrors.UploadString(urlSend, postData);
+                }
+                catch (WebException ex)
+                {
+                    main.Log.error("ErrorSender: Send - " + ex.Message);
+                }
                 try
                 {
                     int success = Convert.ToInt32(results);
-                    main.Log.DequeueErrors(success);
-                } 
+                }
                 catch (FormatException ex)
                 {
-                    main.Log.error(ex.Message);
+                    main.Log.error(ex.Message + " and: " + results);
+                }
+                finally
+                {
+                    List<String> lErrors = JsonConvert.DeserializeObject<List<String>>(jsonErrors);
+                    main.Log.DequeueErrors(lErrors.Count);
                 }
             }
         }

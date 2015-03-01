@@ -13,33 +13,43 @@ namespace SmartConnect
         public String Name
         {
             get { return name; }
+            set { name = value; }
         }
 
         String mac;
         public String MAC
         {
             get { return mac; }
+            set { mac = value; }
         }
 
         int currentClients;
         public int CurrentClients
         {
             get { return currentClients; }
+            set { currentClients = value; }
         }
 
         int maxClients;
         public int MaxClients
         {
             get { return maxClients; }
+            set { maxClients = value; }
         }
 
         Boolean isLockable;
         public Boolean IsLockable
         {
             get { return isLockable; }
+            set { isLockable = value; }
         }
 
-        String[] SSIDs;
+        String[] aSSIDs;
+        public String[] SSIDs
+        {
+            get { return aSSIDs; }
+            set { aSSIDs = value; }
+        }
 
         ConcurrentDictionary<String, SSID> dSSIDs = new ConcurrentDictionary<string, SSID>();
 
@@ -50,7 +60,7 @@ namespace SmartConnect
             this.currentClients = currentClients;
             this.maxClients = maxClients;
             this.isLockable = isLockable;
-            this.SSIDs = SSIDs;
+            this.aSSIDs = SSIDs;
             
         }
 
@@ -62,15 +72,18 @@ namespace SmartConnect
 
         public void LinkSSIDs(WiFiConnect controller)
         {
-            foreach (String ssidName in SSIDs)
+            if (aSSIDs != null)
             {
-                try
+                foreach (String ssidName in aSSIDs)
                 {
-                    dSSIDs[ssidName] = controller.getSSID(ssidName);
-                }
-                catch (KeyNotFoundException)
-                {
-
+                    try
+                    {
+                        dSSIDs[ssidName] = controller.getSSID(ssidName);
+                    }
+                    catch (KeyNotFoundException ex)
+                    {
+                        controller.Log.error("LinkSSIDs: KeyNotFound - " + ex.Message);
+                    }
                 }
             }
         }

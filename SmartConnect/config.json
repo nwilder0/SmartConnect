@@ -13,7 +13,7 @@
   "filenameAPs": "APs.json",
   "serverTimeout": "120",
   "disableLinks": "False",
-  "sendConnectionData": "True",
+  "sendNetworkData": "True",
   "defaultEncryption": "AES",
   "internalNetworkName": "AUCA",
   "autoConnect": "True",

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Security.Cryptography;
 using System.Windows.Forms;
+using Newtonsoft.Json;
 
 namespace SmartConnect
 {
@@ -14,50 +15,95 @@ namespace SmartConnect
     {
         String name;
         public String Name
-        { get { return name; } }
+        { 
+            get { return name; }
+            set { name = value; }
+        }
 
-        String profileName;
-        public String ProfileName
-        { get { return name; } }
-        
         String role;
         public String Role
-        { get { return role; } }
+        { 
+            get { return role; }
+            set { role = value; }
+        }
 
         String type;
         public String Type
-        { get { return type; } }
+        { 
+            get { return type; }
+            set { type = value; }
+        }
 
         Boolean broadcast;
+        public Boolean Broadcast
+        {
+            get { return broadcast; }
+            set { broadcast = value; }
+        }
         
         String authentication;
         public String Authentication
-        { get { return authentication; } }
+        { 
+            get { return authentication; }
+            set { authentication = value; }
+        }
         
         String encryption;
         public String Encryption
-        { get { return encryption; } }
+        { 
+            get { return encryption; }
+            set { encryption = value; }
+        }
         
         Boolean useOneX;
-        public Boolean OneX
-        { get { return useOneX; } }
+        public Boolean UseOneX
+        { 
+            get { return useOneX; }
+            set { useOneX = value; }
+        }
         
         String sharedKey;
         public String SharedKey
-        { get { return sharedKey; } }
+        { 
+            get { return sharedKey; }
+            set { sharedKey = value; }
+        }
 
         String dot1XTemplateFilename;
         public String Dot1XTemplateFilename
-        { get { return dot1XTemplateFilename; } }
+        { 
+            get { return dot1XTemplateFilename; }
+            set { dot1XTemplateFilename = value; }
+        }
+
+        Boolean defaultSSID;
+        public Boolean DefaultSSID
+        {
+            get { return defaultSSID; }
+            set { defaultSSID = value; }
+        }
         
         String TrustedRootCA;
-
+        
+        String profileName;
+        [JsonIgnore]
+        public String ProfileName
+        {
+            get { return profileName; }
+            set { profileName = value; }
+        }
+        
         XDocument xdocProfile = null;
+        [JsonIgnore]
         public String Profile
-        { get { 
-            String tmpProfile = xdocProfile.ToString();
-            tmpProfile = "<?xml version=\"1.0\"?>" + System.Environment.NewLine + tmpProfile.Replace(">True<", ">true<").Replace(">False<",">false<");
-            return tmpProfile;
+        { get {
+            if (xdocProfile != null)
+            {
+                String tmpProfile = xdocProfile.ToString();
+                tmpProfile = "<?xml version=\"1.0\"?>" + System.Environment.NewLine + tmpProfile.Replace(">True<", ">true<").Replace(">False<", ">false<");
+                return tmpProfile;
+            }
+            else return "";
         } }
 
         public SSID(String name, String profileName, String role, String type, Boolean broadcast, String authentication, String encryption, Boolean useOneX, String sharedKey, String dot1XTemplateFilename, XDocument xdocProfile)
@@ -133,9 +179,9 @@ namespace SmartConnect
                     if (!useOneX)
                     {
                         XElement xPSK = new XElement("sharedKey");
-                        xPSK.Add("keyType");
-                        xPSK.Add("protected");
-                        xPSK.Add("keyMaterial");
+                        xPSK.Add(new XElement("keyType"));
+                        xPSK.Add(new XElement("protected"));
+                        xPSK.Add(new XElement("keyMaterial"));
                         xPSK.Element("keyType").Value = "passPhrase";
                         xPSK.Element("protected").Value = "true";
                         xPSK.Element("keyMaterial").Value = Utility.String2HexStr(Utility.Bytes2String(ProtectedData.Protect(Utility.String2Bytes(sharedKey), null, DataProtectionScope.CurrentUser)));

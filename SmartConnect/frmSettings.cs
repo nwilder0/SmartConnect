@@ -41,7 +41,7 @@ namespace SmartConnect
 
             wifiConnect.Setting("runOnStartup", chkRunOnStart.Checked);
             wifiConnect.Setting("sendErrors",chkSendErrors.Checked);
-            wifiConnect.Setting("sendConnectionData",chkSendConnectionData.Checked);
+            wifiConnect.Setting("sendNetworkData",chkSendConnectionData.Checked);
 
             wifiConnect.Setting("serverIP",txtServerIP.Text);
 
@@ -78,7 +78,7 @@ namespace SmartConnect
             chkDisableBandwidth.Checked = Convert.ToBoolean(wifiConnect.Setting("disableBandwidth"));
             chkRunOnStart.Checked = Convert.ToBoolean(wifiConnect.Setting("runOnStartup"));
             chkSendErrors.Checked = Convert.ToBoolean(wifiConnect.Setting("sendErrors"));
-            chkSendConnectionData.Checked = Convert.ToBoolean(wifiConnect.Setting("sendConnectionData"));
+            chkSendConnectionData.Checked = Convert.ToBoolean(wifiConnect.Setting("sendNetworkData"));
 
             txtServerIP.Text = wifiConnect.Setting("serverIP");
 

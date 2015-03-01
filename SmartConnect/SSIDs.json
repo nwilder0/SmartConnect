@@ -10,7 +10,7 @@
 			"useOneX": "true",
 			"sharedKey": "",
 			"dot1XTemplateFilename": "dot1X.xml",
-			"default": "true"
+			"defaultSSID": "true"
 		},
 	"AU-VIP": 
 		{
@@ -23,7 +23,7 @@
 			"useOneX": "true",
 			"sharedKey": "",
 			"dot1XTemplateFilename": "dot1X.xml",
-			"default": "false"
+			"defaultSSID": "false"
 		},
 	"AU-Guest": 
 		{
@@ -36,7 +36,7 @@
 			"useOneX": "true",
 			"sharedKey": "",
 			"dot1XTemplateFilename": "dot1X.xml",
-			"default": "true"
+			"defaultSSID": "true"
 		},
 	"AU-109-1": 
 		{
@@ -49,7 +49,7 @@
 			"useOneX": "true",
 			"sharedKey": "",
 			"dot1XTemplateFilename": "dot1X.xml",
-			"default": "false"
+			"defaultSSID": "false"
 		},
 	"AU-109-2": 
 		{
@@ -62,7 +62,7 @@
 			"useOneX": "true",
 			"sharedKey": "",
 			"dot1XTemplateFilename": "dot1X.xml",
-			"default": "false"
+			"defaultSSID": "false"
 		}
 
 

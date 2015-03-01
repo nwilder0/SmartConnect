@@ -35,9 +35,14 @@ namespace SmartConnect
             if (pnlLinks.InvokeRequired) pnlLinks.Invoke(new Action<SCLink[]>(TSSetLinks), new Object[] { aLinks });
             else
             {
+                List<LinkLabel> removeList = new List<LinkLabel>();
                 foreach (Control c in pnlLinks.Controls)
                 {
-                    if (c.GetType().ToString().Equals("System.Windows.Forms.LinkLabel")) pnlLinks.Controls.Remove(c);
+                    if (c.GetType().ToString().Equals("System.Windows.Forms.LinkLabel")) removeList.Add((LinkLabel)c);
+                }
+                foreach (Control c in removeList)
+                {
+                    pnlLinks.Controls.Remove(c);
                 }
                 // loop through each link
                 int i = 0;

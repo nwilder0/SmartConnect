@@ -64,8 +64,8 @@ namespace SmartConnect
                     qError.Enqueue(mesg);
                     if (Monitor.TryEnter(errorQueueNotEmpty, 1000))
                     {
-                        Monitor.Exit(errorQueueNotEmpty);
                         Monitor.PulseAll(errorQueueNotEmpty);
+                        Monitor.Exit(errorQueueNotEmpty);
                     }
                 }
 
@@ -90,7 +90,7 @@ namespace SmartConnect
         {
             if (qError.Count != 0)
             {
-                return JsonConvert.SerializeObject(qError, Formatting.Indented);
+                return JsonConvert.SerializeObject(qError.ToArray(), Formatting.Indented);
             }
             else
             {

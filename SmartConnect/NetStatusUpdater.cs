@@ -40,6 +40,7 @@ namespace SmartConnect
 
         public void Update()
         {
+            ConcurrentDictionary<String, int> dNetData = new ConcurrentDictionary<String, int>();
             Dictionary<String,int> blueSSIDs = new Dictionary<String,int>();
             String[] arrSSIDs = main.SSIDs;
             foreach (String ssid in arrSSIDs)
@@ -60,6 +61,7 @@ namespace SmartConnect
 
             Wlan.WlanAvailableNetwork[] networks;
             Wlan.WlanBssEntry[] aps=null;
+            Wlan.WlanBssEntry[] apsAll = null;
 
             String connectedSSID = "";
 
@@ -79,7 +81,8 @@ namespace SmartConnect
                 }
 
                 networks = iface.GetAvailableNetworkList(0);
-                if (aps == null) aps = iface.GetNetworkBssList();
+                apsAll = iface.GetNetworkBssList();
+                if (aps == null) aps = apsAll;
                 
             }
 
@@ -109,6 +112,16 @@ namespace SmartConnect
                 }
                 else if (!redAPs.ContainsKey(apMAC + " (" + strSSID + ")")) redAPs.Add(apMAC + " (" + strSSID + ")", signalStrength);
             }
+
+            foreach (Wlan.WlanBssEntry bss in apsAll)
+            {
+                Wlan.Dot11Ssid ssid = bss.dot11Ssid;
+                String strSSID = Encoding.ASCII.GetString(ssid.SSID).Replace("\0", "");
+                String apMAC = Utility.Bytes2MAC(bss.dot11Bssid);
+                int signalStrength = Utility.RSSI2SignalPercent(bss.rssi);
+                dNetData[apMAC] = bss.rssi;
+            }
+            main.SetNetData(dNetData);
 
             List<String> lSSIDs = new List<String>();
             List<String> lAPs = new List<String>();

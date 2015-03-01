@@ -48,6 +48,8 @@ namespace SmartConnect
         Updater updater;
         ErrorSender senderErrors;
         NetStatusUpdater updaterNetStatus;
+        DataSender senderData;
+
         Thread updateThread=null;
         Thread updateNetStatusThread = null;
 
@@ -55,6 +57,7 @@ namespace SmartConnect
         Thread sendDataThread = null;
 
         ConcurrentDictionary<String,SSID> localSSIDs;
+        ConcurrentDictionary<String, int> dNetData;
 
         ConcurrentDictionary<String, String> dConfig;
         public String Setting(String key)
@@ -118,6 +121,7 @@ namespace SmartConnect
             lLinks = new List<SCLink>();
             dConfig = new ConcurrentDictionary<String, String>();
             localSSIDs = new ConcurrentDictionary<string,SSID>();
+            dNetData = new ConcurrentDictionary<String, int>();
             wClient = new WlanClient();
             
             Load("all");
@@ -145,15 +149,21 @@ namespace SmartConnect
 
             senderErrors = new ErrorSender(updateTimeout, dConfig["serverIP"], this);
 
-            sendErrorThread = new Thread(senderErrors.run);
+            sendErrorThread = new Thread(senderErrors.Run);
 
             if (dFlags["sendErrors"])
             {
                 sendErrorThread.Start();
             }
 
+            senderData = new DataSender(updateTimeout, updateInterval, dConfig["serverIP"], this);
 
-            //sendDataThread = new Thread();
+            sendDataThread = new Thread(senderData.Run);
+            if (dFlags["sendNetworkData"])
+            {
+                sendDataThread.Start();
+            }
+ 
 
         }
 
@@ -226,6 +236,13 @@ namespace SmartConnect
                         ssid.SetProfile();
                     }
                 }
+                if (element.Equals("ap") || element.Equals("all"))
+                {
+                    foreach (AP ap in dAPs.Values)
+                    {
+                        ap.LinkSSIDs(this);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -268,7 +285,7 @@ namespace SmartConnect
 
         public void ValidateConfig()
         {
-            String[] fFlags = { "autoConnect", "smartConnect", "vpnConnect", "autoUpdate", "enableDebug", "disableLinks", "runOnStartup", "sendErrors", "sendConnectionData","autoOverwrite" };
+            String[] fFlags = { "autoConnect", "smartConnect", "vpnConnect", "autoUpdate", "enableDebug", "disableLinks", "runOnStartup", "sendErrors", "sendNetworkData","autoOverwrite" };
             
             foreach (String key in fFlags)
             {
@@ -330,6 +347,18 @@ namespace SmartConnect
         {
             if (dAPs.ContainsKey(apMAC)) return dAPs[apMAC].GetListString();
             else return apMAC;
+        }
+
+        public void SetNetData(ConcurrentDictionary<String, int> newNetData)
+        {
+            lock (dNetData) dNetData = newNetData;
+        }
+
+        public String GetNetData()
+        {
+            String jsonNetData = "";
+            lock (dNetData) jsonNetData = JsonConvert.SerializeObject(dNetData, Formatting.Indented);
+            return jsonNetData;
         }
 
         public void Config8021X()
@@ -403,7 +432,7 @@ namespace SmartConnect
                         if ((found.Authentication.Equals(strAuth) && found.Encryption.Equals(strEnc)))
                         {
                             addProfile = false;
-                            if(!found.OneX.Equals(b1X))
+                            if(!found.UseOneX.Equals(b1X))
                             {
                                 addProfile = true;
                                 // del old profile
@@ -524,13 +553,21 @@ namespace SmartConnect
 
                 if (iface.InterfaceState == Wlan.WlanInterfaceState.Connected)
                 {
-                    connectedSSID = iface.CurrentConnection.wlanAssociationAttributes.dot11Ssid.SSID.ToString();
+                    connectedSSID = Encoding.ASCII.GetString(iface.CurrentConnection.wlanAssociationAttributes.dot11Ssid.SSID).Replace("\0", "");
                     connectedAP = iface.CurrentConnection.wlanAssociationAttributes.Dot11Bssid.ToString();
                     connectedTime = iface.NetworkInterface.GetIPProperties().UnicastAddresses[0].DhcpLeaseLifetime.ToString();
-                    ip = iface.NetworkInterface.GetIPProperties().UnicastAddresses[0].Address.ToString();
+                    foreach(System.Net.NetworkInformation.UnicastIPAddressInformation addr in iface.NetworkInterface.GetIPProperties().UnicastAddresses)
+                    {
+                        if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        {
+                            ip = addr.Address.ToString();
+                        }
+                    }
                 }
             }
-            postData = "mac=" + mac + "&ip=" + ip + "&os=" + os + "&connected_ssid=" + connectedSSID + "&connected_ap=" + connectedAP + "&connected_time=" + connectedTime;
+            postData = "mac=" + WebUtility.UrlEncode(mac) + "&ip=" + WebUtility.UrlEncode(ip) + "&os=" + WebUtility.UrlEncode(os) + "&connected_ssid=" + 
+                WebUtility.UrlEncode(connectedSSID) + "&connected_ap=" + WebUtility.UrlEncode(connectedAP) + 
+                "&connected_time=" + WebUtility.UrlEncode(connectedTime);
 
             return postData;
         }
@@ -553,6 +590,8 @@ namespace SmartConnect
         {
             Save();
 
+            
+
             if (updateThread != null)
             {
                 if(updateThread.IsAlive) updateThread.Abort();
@@ -564,6 +603,10 @@ namespace SmartConnect
             if (updateNetStatusThread != null)
             {
                 if (updateNetStatusThread.IsAlive) updateNetStatusThread.Abort();
+            }
+            if (sendDataThread != null)
+            {
+                if (sendDataThread.IsAlive) sendDataThread.Abort();
             }
         }
 

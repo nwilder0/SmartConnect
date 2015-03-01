@@ -28,6 +28,7 @@ namespace SmartConnect
 
         public Updater(int updateInterval, int timeout, String serverIP, String filenameTemplate, WiFiConnect main)
         {
+            this.main = main;
             this.updateInterval = updateInterval;
             this.timeout = timeout;
             this.serverIP = serverIP;
@@ -64,10 +65,13 @@ namespace SmartConnect
                 else
                 {
                     String jsonResult = e.Result;
-                    List<SCLink> lResult = JsonConvert.DeserializeObject<List<SCLink>>(jsonResult);
-                    string jsonString = JsonConvert.SerializeObject(lResult, Formatting.Indented);
-                    System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameLinks"), jsonString);
-                    main.Load("link");
+                    if (!jsonResult.Trim().Equals(""))
+                    {
+                        List<SCLink> lResult = JsonConvert.DeserializeObject<List<SCLink>>(jsonResult);
+                        string jsonString = JsonConvert.SerializeObject(lResult, Formatting.Indented);
+                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameLinks"), jsonString);
+                        main.Load("link");
+                    }
                 }
                 
             }
@@ -96,10 +100,13 @@ namespace SmartConnect
                 else
                 {
                     String jsonResult = e.Result;
-                    Dictionary<String, AP> dResult = JsonConvert.DeserializeObject<Dictionary<String, AP>>(jsonResult);
-                    string jsonString = JsonConvert.SerializeObject(dConfig, Formatting.Indented);
-                    System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameAPs"), jsonString);
-                    main.Load("ap");
+                    if (!jsonResult.Trim().Equals(""))
+                    {
+                        Dictionary<String, AP> dResult = JsonConvert.DeserializeObject<Dictionary<String, AP>>(jsonResult);
+                        string jsonString = JsonConvert.SerializeObject(dResult, Formatting.Indented);
+                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameAPs"), jsonString);
+                        main.Load("ap");
+                    }
                 }
             }
             catch (Exception ex)
@@ -121,26 +128,29 @@ namespace SmartConnect
                 Exception ex = e.Error;
                 if (ex is WebException)
                 {
-                    main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
+                    if (main != null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
                 }
                 else
                 {
                     String jsonResult = e.Result;
-                    Dictionary<String, SSID> dResult = JsonConvert.DeserializeObject<Dictionary<String, SSID>>(jsonResult);
-                    string jsonString = JsonConvert.SerializeObject(dConfig, Formatting.Indented);
-                    System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameSSIDs"), jsonString);
-                    main.Load("ssid");
+                    if (!jsonResult.Trim().Equals(""))
+                    {
+                        Dictionary<String, SSID> dResult = JsonConvert.DeserializeObject<Dictionary<String, SSID>>(jsonResult);
+                        string jsonString = JsonConvert.SerializeObject(dResult, Formatting.Indented);
+                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameSSIDs"), jsonString);
+                        main.Load("ssid");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 if (ex is WebException || ex is System.Reflection.TargetInvocationException)
                 {
-                    main.Log.error("SSID Update: Unable to reach server for updates - " + ex.InnerException.Message);
+                    if(main!=null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.InnerException.Message);
                 }
                 else
                 {
-                    main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
+                    if(main!=null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
                 }
             }
         }
@@ -159,31 +169,32 @@ namespace SmartConnect
                     lock (dConfig)
                     {
                         String jsonResult = e.Result;
-
-                        Dictionary<String, String> dResult = JsonConvert.DeserializeObject<Dictionary<String, String>>(jsonResult);
-
-                        Boolean preEmpt = false;
-
-                        if (dResult.ContainsKey("version"))
+                        if (!jsonResult.Trim().Equals(""))
                         {
-                            if (Convert.ToInt32(dResult["version"]) > Convert.ToInt32(dConfig["version"])) preEmpt = true;
-                        }
-                        else
-                        {
-                            dResult["version"] = "0";
-                        }
+                            Dictionary<String, String> dResult = JsonConvert.DeserializeObject<Dictionary<String, String>>(jsonResult);
 
-                        dConfig = new ConcurrentDictionary<string,string>(dResult);
+                            Boolean preEmpt = false;
 
-                        Save();
+                            if (dResult.ContainsKey("version"))
+                            {
+                                if (Convert.ToInt32(dResult["version"]) > Convert.ToInt32(dConfig["version"])) preEmpt = true;
+                            }
+                            else
+                            {
+                                dResult["version"] = "0";
+                            }
 
-                        if (preEmpt)
-                        {
-                            frmUpdate mbUpdate = new frmUpdate();
-                            mbUpdate.ShowDialog();
-                        }
+                            dConfig = new ConcurrentDictionary<string, string>(dResult);
 
-                        
+                            Save();
+
+                            if (preEmpt)
+                            {
+                                frmUpdate mbUpdate = new frmUpdate();
+                                mbUpdate.ShowDialog();
+                            }
+
+                        }                        
                     }
                 }
             } catch (Exception ex) {
@@ -265,6 +276,14 @@ namespace SmartConnect
             string jsonConfig = JsonConvert.SerializeObject(dConfig, Formatting.Indented);
 
             System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate, jsonConfig);
+        }
+
+        public void Stop()
+        {
+            if (checkForAPUpdates.IsBusy) checkForAPUpdates.CancelAsync();
+            if (checkForSSIDUpdates.IsBusy) checkForSSIDUpdates.CancelAsync();
+            if (checkForLinkUpdates.IsBusy) checkForLinkUpdates.CancelAsync();
+            if (checkForConfigUpdates.IsBusy) checkForConfigUpdates.CancelAsync();
         }
 
     }
