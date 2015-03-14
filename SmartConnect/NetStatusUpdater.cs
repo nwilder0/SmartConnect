@@ -75,7 +75,7 @@ namespace SmartConnect
                     Wlan.Dot11Ssid current = iface.CurrentConnection.wlanAssociationAttributes.dot11Ssid;
                     Boolean securityEnabled = iface.CurrentConnection.wlanSecurityAttributes.securityEnabled;
                     Wlan.Dot11BssType bssType = iface.CurrentConnection.wlanAssociationAttributes.dot11BssType;
-                    connectedAP = Utility.Bytes2MAC(iface.CurrentConnection.wlanAssociationAttributes.dot11Bssid);
+                    connectedAP = SCUtility.Bytes2MAC(iface.CurrentConnection.wlanAssociationAttributes.dot11Bssid);
                     connectedSSID = Encoding.ASCII.GetString(current.SSID).Replace("\0", "");
                     aps = iface.GetNetworkBssList(current,bssType,securityEnabled);
                 }
@@ -103,8 +103,8 @@ namespace SmartConnect
             {
                 Wlan.Dot11Ssid ssid = bss.dot11Ssid;
                 String strSSID = Encoding.ASCII.GetString(ssid.SSID).Replace("\0", "");
-                String apMAC = Utility.Bytes2MAC(bss.dot11Bssid);
-                int signalStrength = Utility.RSSI2SignalPercent(bss.rssi);
+                String apMAC = SCUtility.Bytes2MAC(bss.dot11Bssid);
+                int signalStrength = SCUtility.RSSI2SignalPercent(bss.rssi);
                 if (blueAPs.ContainsKey(apMAC))
                 {
                     blueAPs.Remove(apMAC);
@@ -117,8 +117,8 @@ namespace SmartConnect
             {
                 Wlan.Dot11Ssid ssid = bss.dot11Ssid;
                 String strSSID = Encoding.ASCII.GetString(ssid.SSID).Replace("\0", "");
-                String apMAC = Utility.Bytes2MAC(bss.dot11Bssid);
-                int signalStrength = Utility.RSSI2SignalPercent(bss.rssi);
+                String apMAC = SCUtility.Bytes2MAC(bss.dot11Bssid);
+                int signalStrength = SCUtility.RSSI2SignalPercent(bss.rssi);
                 dNetData[apMAC] = bss.rssi;
             }
             main.SetNetData(dNetData);
@@ -175,7 +175,7 @@ namespace SmartConnect
             i = 0;
             foreach (KeyValuePair<String, int> item in greenAPs.OrderByDescending(key => key.Value))
             {
-                String listName = main.GetAPString(item.Key);
+                String listName = main.GetAPNameOrMacString(item.Key);
                 if (item.Key == connectedAP)
                 {
                     connectedAPIndex = i;
@@ -189,7 +189,7 @@ namespace SmartConnect
 
             foreach (KeyValuePair<String, int> item in blueAPs.OrderByDescending(key => key.Value))
             {
-                String listName = main.GetAPString(item.Key);
+                String listName = main.GetAPNameOrMacString(item.Key);
                 if (item.Key == connectedAP)
                 {
                     connectedAPIndex = i;

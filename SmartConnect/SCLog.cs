@@ -51,7 +51,7 @@ namespace SmartConnect
              
         }
 
-        public void error(String mesg)
+        public void Error(String mesg)
         {
             try
             {
@@ -76,7 +76,7 @@ namespace SmartConnect
             }
         }
 
-        public void debug(String mesg)
+        public void Debug(String mesg)
         {
             if (enableDebug)
             {
@@ -86,7 +86,7 @@ namespace SmartConnect
             }
         }
 
-        public String getQueuedErrors()
+        public String GetQueuedErrorsJson()
         {
             if (qError.Count != 0)
             {
@@ -109,7 +109,7 @@ namespace SmartConnect
                     if (qError.TryDequeue(out mesg)) num--;
                     if (i > 10000) break;
                 }
-                if(num>0) error("DequeueErrors: Failure with Dequeuing sent errors");
+                if(num>0) Error("DequeueErrors: Failure with Dequeuing sent errors");
             }
         }
     }

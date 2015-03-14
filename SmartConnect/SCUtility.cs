@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SmartConnect
 {
-    class Utility
+    class SCUtility
     {
         public static byte[] String2Bytes(string str)
         {
@@ -43,7 +43,7 @@ namespace SmartConnect
             {
                 bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
             }
-            str = Utility.Bytes2String(bytes);
+            str = SCUtility.Bytes2String(bytes);
             return str;
         }
 
@@ -54,7 +54,7 @@ namespace SmartConnect
             {
                 foreach (byte value in bytes)
                 {
-                    string tmp = Utility.String2HexStr(Convert.ToChar(value).ToString());
+                    string tmp = SCUtility.String2HexStr(Convert.ToChar(value).ToString());
                     if (tmp.Length == 1) tmp = "0" + tmp;
                     if (tmp.Length == 0) tmp = "00" + tmp;
                     mac += tmp + ":";
@@ -64,11 +64,11 @@ namespace SmartConnect
             return mac;
         }
 
-        public static int RSSI2SignalPercent(int signal)
+        public static int RSSI2SignalPercent(int signalStrength)
         {
             int percent = 0;
-            if (signal > -100 && signal < -50) percent = (int)((signal + 100.0) / 50.0) * 100;
-            if (signal >= -50) percent = 100;
+            if (signalStrength > -100 && signalStrength < -50) percent = (int)((signalStrength + 100.0) / 50.0) * 100;
+            if (signalStrength >= -50) percent = 100;
             return percent;
         }
     }

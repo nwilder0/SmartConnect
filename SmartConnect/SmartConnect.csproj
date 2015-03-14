@@ -75,13 +75,13 @@
     <Compile Include="NetStatusUpdater.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SCConfig.cs" />
     <Compile Include="SCLog.cs" />
-    <Compile Include="Updater.cs" />
+    <Compile Include="Sender.cs" />
+    <Compile Include="ServerUpdater.cs" />
     <Compile Include="WiFiConnect.cs" />
     <Compile Include="SCLink.cs" />
     <Compile Include="SSID.cs" />
-    <Compile Include="Utility.cs" />
+    <Compile Include="SCUtility.cs" />
     <EmbeddedResource Include="frmSettings.resx">
       <DependentUpon>frmSettings.cs</DependentUpon>
     </EmbeddedResource>

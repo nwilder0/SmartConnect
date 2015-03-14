@@ -53,14 +53,14 @@ namespace SmartConnect
 
         ConcurrentDictionary<String, SSID> dSSIDs = new ConcurrentDictionary<string, SSID>();
 
-        public AP(String name, String mac, int currentClients, int maxClients, Boolean isLockable, String[] SSIDs)
+        public AP(String name, String mac, int currentClients, int maxClients, Boolean isLockable, String[] aSSIDs)
         {
             this.name = name;
             this.mac = mac;
             this.currentClients = currentClients;
             this.maxClients = maxClients;
             this.isLockable = isLockable;
-            this.aSSIDs = SSIDs;
+            this.aSSIDs = aSSIDs;
             
         }
 
@@ -78,11 +78,11 @@ namespace SmartConnect
                 {
                     try
                     {
-                        dSSIDs[ssidName] = controller.getSSID(ssidName);
+                        dSSIDs[ssidName] = controller.GetSSID(ssidName);
                     }
                     catch (KeyNotFoundException ex)
                     {
-                        controller.Log.error("LinkSSIDs: KeyNotFound - " + ex.Message);
+                        controller.Log.Error("LinkSSIDs: KeyNotFound - " + ex.Message);
                     }
                 }
             }

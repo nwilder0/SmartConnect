@@ -83,8 +83,6 @@ namespace SmartConnect
             set { defaultSSID = value; }
         }
         
-        String TrustedRootCA;
-        
         String profileName;
         [JsonIgnore]
         public String ProfileName
@@ -106,7 +104,8 @@ namespace SmartConnect
             else return "";
         } }
 
-        public SSID(String name, String profileName, String role, String type, Boolean broadcast, String authentication, String encryption, Boolean useOneX, String sharedKey, String dot1XTemplateFilename, XDocument xdocProfile)
+        public SSID(String name, String profileName, String role, String type, Boolean broadcast, String authentication, String encryption, 
+            Boolean useOneX, String sharedKey, String dot1XTemplateFilename, XDocument xdocProfile)
         {
             this.name = name;
             this.profileName = profileName;
@@ -121,15 +120,16 @@ namespace SmartConnect
 
             try
             {
-                if (xdocProfile.Equals(null))
+                if (xdocProfile == null)
                 {
-                    xdocProfile = new XDocument(AppDomain.CurrentDomain.BaseDirectory + dot1XTemplateFilename);
+                    String strTempXML = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dot1XTemplateFilename);
+                    xdocProfile = XDocument.Parse(strTempXML);
                     XNamespace xNS = xdocProfile.Root.GetDefaultNamespace();
-                    xdocProfile.Element(xNS + "name").Value = name;
+                    xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "name").Value = name;
                     // hex string with separator or not?
-                    xdocProfile.Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "name").Value = name;
-                    xdocProfile.Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "hex").Value = Utility.String2HexStr(name);
-                    XElement xSecurity = xdocProfile.Root.Element(xNS + "MSM").Element(xNS + "security");
+                    xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "name").Value = name;
+                    xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "hex").Value = SCUtility.String2HexStr(name);
+                    XElement xSecurity = xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "MSM").Element(xNS + "security");
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "authentication").Value = authentication;
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "encryption").Value = encryption;
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "useOneX").Value = useOneX.ToString();
@@ -141,17 +141,15 @@ namespace SmartConnect
                         xPSK.Add("keyMaterial");
                         xPSK.Element("keyType").Value = "passPhrase";
                         xPSK.Element("protected").Value = "true";
-                        xPSK.Element("keyMaterial").Value = Utility.String2HexStr(Utility.Bytes2String(ProtectedData.Protect(Utility.String2Bytes(sharedKey), null, DataProtectionScope.CurrentUser)));
+                        xPSK.Element("keyMaterial").Value = SCUtility.String2HexStr(SCUtility.Bytes2String(ProtectedData.Protect(SCUtility.String2Bytes(sharedKey), null, DataProtectionScope.CurrentUser)));
 
                         xSecurity.Add(xPSK);
                     }
 
+                    
+                }
+                this.xdocProfile = xdocProfile;
 
-                }
-                else
-                {
-                    this.xdocProfile = new XDocument(xdocProfile);
-                }
             }
             catch (Exception ex)
             {
@@ -171,7 +169,7 @@ namespace SmartConnect
                     xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "name").Value = name;
                     // hex string with separator or not?
                     xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "name").Value = name;
-                    xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "hex").Value = Utility.String2HexStr(name);
+                    xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "SSIDConfig").Element(xNS + "SSID").Element(xNS + "hex").Value = SCUtility.String2HexStr(name);
                     XElement xSecurity = xdocProfile.Element(xNS + "WLANProfile").Element(xNS + "MSM").Element(xNS + "security");
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "authentication").Value = authentication;
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "encryption").Value = encryption;
@@ -184,7 +182,7 @@ namespace SmartConnect
                         xPSK.Add(new XElement("keyMaterial"));
                         xPSK.Element("keyType").Value = "passPhrase";
                         xPSK.Element("protected").Value = "true";
-                        xPSK.Element("keyMaterial").Value = Utility.String2HexStr(Utility.Bytes2String(ProtectedData.Protect(Utility.String2Bytes(sharedKey), null, DataProtectionScope.CurrentUser)));
+                        xPSK.Element("keyMaterial").Value = SCUtility.String2HexStr(SCUtility.Bytes2String(ProtectedData.Protect(SCUtility.String2Bytes(sharedKey), null, DataProtectionScope.CurrentUser)));
 
                         xSecurity.Add(xPSK);
                     }

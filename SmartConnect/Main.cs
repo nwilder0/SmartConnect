@@ -24,9 +24,16 @@ namespace SmartConnect
 
         private void Main_Load(object sender, EventArgs e)
         {
-            wifiConnect = new WiFiConnect(this);
-            
-            LoadVisible();
+            try
+            {
+                wifiConnect = new WiFiConnect(this);
+
+                LoadVisible();
+            }
+            catch (Exception ex)
+            {
+                wifiConnect.Log.Error("In Main_Load: " + ex.Message);
+            }
 
         }
 

@@ -13,7 +13,7 @@ using System.Windows.Forms;
 
 namespace SmartConnect
 {
-    class Updater
+    class ServerUpdater
     {
         int timeout,updateInterval;
         String serverIP;
@@ -26,7 +26,7 @@ namespace SmartConnect
         Uri urlConfigUpdate, urlSSIDUpdate, urlAPUpdate, urlLinkUpdate;
         WiFiConnect main;
 
-        public Updater(int updateInterval, int timeout, String serverIP, String filenameTemplate, WiFiConnect main)
+        public ServerUpdater(int updateInterval, int timeout, String serverIP, String filenameTemplate, WiFiConnect main)
         {
             this.main = main;
             this.updateInterval = updateInterval;
@@ -60,7 +60,7 @@ namespace SmartConnect
                 Exception ex = e.Error;
                 if (ex is WebException)
                 {
-                    main.Log.error("Link Update: Unable to reach server for updates - " + ex.Message);
+                    main.Log.Error("Link Update: Unable to reach server for updates - " + ex.Message);
                 }
                 else
                 {
@@ -79,11 +79,11 @@ namespace SmartConnect
             {
                 if (ex is WebException || ex is System.Reflection.TargetInvocationException)
                 {
-                    main.Log.error("Link Update: Unable to reach server for updates - " + ex.InnerException.Message);
+                    main.Log.Error("Link Update: Unable to reach server for updates - " + ex.InnerException.Message);
                 }
                 else
                 {
-                    main.Log.error("Link Update: non-connection error - " + ex.Message);
+                    main.Log.Error("Link Update: non-connection error - " + ex.Message);
                 }
             }
         }
@@ -95,7 +95,7 @@ namespace SmartConnect
                 Exception ex = e.Error;
                 if (ex is WebException)
                 {
-                    main.Log.error("AP Update: Unable to reach server for updates - " + ex.Message);
+                    main.Log.Error("AP Update: Unable to reach server for updates - " + ex.Message);
                 }
                 else
                 {
@@ -113,11 +113,11 @@ namespace SmartConnect
             {
                 if (ex is WebException || ex is System.Reflection.TargetInvocationException)
                 {
-                    main.Log.error("AP Update: Unable to reach server for updates - " + ex.InnerException.Message);
+                    main.Log.Error("AP Update: Unable to reach server for updates - " + ex.InnerException.Message);
                 }
                 else
                 {
-                    main.Log.error("AP Update: non-connection error - " + ex.Message);
+                    main.Log.Error("AP Update: non-connection error - " + ex.Message);
                 }
             }
         }
@@ -128,7 +128,7 @@ namespace SmartConnect
                 Exception ex = e.Error;
                 if (ex is WebException)
                 {
-                    if (main != null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
+                    if (main != null) main.Log.Error("SSID Update: Unable to reach server for updates - " + ex.Message);
                 }
                 else
                 {
@@ -146,11 +146,11 @@ namespace SmartConnect
             {
                 if (ex is WebException || ex is System.Reflection.TargetInvocationException)
                 {
-                    if(main!=null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.InnerException.Message);
+                    if(main!=null) main.Log.Error("SSID Update: Unable to reach server for updates - " + ex.InnerException.Message);
                 }
                 else
                 {
-                    if(main!=null) main.Log.error("SSID Update: Unable to reach server for updates - " + ex.Message);
+                    if(main!=null) main.Log.Error("SSID Update: Unable to reach server for updates - " + ex.Message);
                 }
             }
         }
@@ -161,7 +161,7 @@ namespace SmartConnect
                 Exception ex = e.Error;
                 if (ex is WebException)
                 {
-                    main.Log.error("Unable to reach server for updates - canceling further updates \n" + ex.Message);
+                    main.Log.Error("Unable to reach server for updates - canceling further updates \n" + ex.Message);
                     //updateInterval = 0;
                 }
                 else
@@ -200,12 +200,12 @@ namespace SmartConnect
             } catch (Exception ex) {
                 if (ex is WebException || ex is System.Reflection.TargetInvocationException)
                 {
-                    main.Log.error(ex.InnerException.Message);
+                    main.Log.Error(ex.InnerException.Message);
 
                 }
                 else
                 {
-                    main.Log.error(ex.Message);
+                    main.Log.Error(ex.Message);
                 }
             }
         }
@@ -245,21 +245,28 @@ namespace SmartConnect
 
         public void Run()
         {
-            if (updateInterval == 0)
+            try
             {
-                Update();
-            }
-            else
-            {
-                for (; ; )
+                if (updateInterval == 0)
                 {
-                    if (updateInterval == 0)
-                    {
-                        break;
-                    }
                     Update();
-                    Thread.Sleep(updateInterval * 60 * 1000);
                 }
+                else
+                {
+                    for (; ; )
+                    {
+                        if (updateInterval == 0)
+                        {
+                            break;
+                        }
+                        Update();
+                        Thread.Sleep(updateInterval * 60 * 1000);
+                    }
+                }
+            }
+            finally
+            {
+                Stop();
             }
         }
 

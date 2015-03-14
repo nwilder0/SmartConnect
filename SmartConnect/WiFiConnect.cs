@@ -31,7 +31,7 @@ namespace SmartConnect
             get { return lastSelectedSSID; }
         }
 
-        Dictionary<String, Boolean> dFlags = new Dictionary<String, Boolean>();
+        ConcurrentDictionary<String, Boolean> dFlags = new ConcurrentDictionary<String, Boolean>();
 
         SCLog log;
         public SCLog Log
@@ -45,12 +45,12 @@ namespace SmartConnect
         // need: add refresh AP list to NetStatusUpdater
         // need: add send network data thread
 
-        Updater updater;
+        ServerUpdater updaterServer;
         ErrorSender senderErrors;
         NetStatusUpdater updaterNetStatus;
         DataSender senderData;
 
-        Thread updateThread=null;
+        Thread updateServerThread=null;
         Thread updateNetStatusThread = null;
 
         Thread sendErrorThread = null;
@@ -74,7 +74,7 @@ namespace SmartConnect
             }
             catch (FormatException ex)
             {
-                log.debug("Setting key = " + key + " and value = " + value + " but value is not Boolean");
+                log.Debug("Setting key = " + key + " and value = " + value + " but value is not Boolean, exact message is " + ex.Message);
             }
             if (dConfig.ContainsKey(key)) dConfig[key] = value;
         }
@@ -87,7 +87,7 @@ namespace SmartConnect
        
 
         ConcurrentDictionary<String, SSID> dSSIDs;
-        public SSID getSSID(String ssid)
+        public SSID GetSSID(String ssid)
         {
             return dSSIDs[ssid];
         }
@@ -97,7 +97,7 @@ namespace SmartConnect
         }
         
         ConcurrentDictionary<String, AP> dAPs;
-        public AP getAP(String ap)
+        public AP GetAP(String ap)
         {
             return dAPs[ap];
         }
@@ -138,13 +138,13 @@ namespace SmartConnect
 
             updateNetStatusThread.Start();
             
-            updater = new Updater(updateInterval, updateTimeout, dConfig["serverIP"], dConfig["filenameTemplate"], this);
+            updaterServer = new ServerUpdater(updateInterval, updateTimeout, dConfig["serverIP"], dConfig["filenameTemplate"], this);
             
-            updateThread = new Thread(updater.Run);
+            updateServerThread = new Thread(updaterServer.Run);
 
             if (dFlags["autoUpdate"] && updateTimeout != 0)
             {
-                updateThread.Start();
+                updateServerThread.Start();
             }
 
             senderErrors = new ErrorSender(updateTimeout, dConfig["serverIP"], this);
@@ -246,7 +246,7 @@ namespace SmartConnect
             }
             catch (Exception ex)
             {
-                log.error(ex.Message);
+                log.Error(ex.Message);
             }
 
         }
@@ -298,14 +298,14 @@ namespace SmartConnect
                     }
                     catch (FormatException ex)
                     {
-                        log.debug("ValidateConfig: " + key + " exists, but value is not boolean");
+                        log.Debug("ValidateConfig: " + key + " exists, but value is not boolean, exact message is " + ex.Message);
                     }
                 }
                 else
                 {
-                    log.debug("ValidateConfig: " + key + " does not exist in config file");
+                    log.Debug("ValidateConfig: " + key + " does not exist in config file");
                 }
-                dFlags.Add(key, value);
+                dFlags.TryAdd(key, value);
             }
 
             if (dConfig.ContainsKey("updateInterval"))
@@ -316,7 +316,7 @@ namespace SmartConnect
                 }
                 catch (FormatException ex)
                 {
-                    log.debug("ValidateConfig: invalid value for updateInterval setting value to 0");
+                    log.Debug("ValidateConfig: invalid value for updateInterval setting value to 0; exact message is " + ex.Message);
                     dConfig["updateInterval"] = "0";
                 }
             }
@@ -333,7 +333,7 @@ namespace SmartConnect
                 }
                 catch (FormatException ex)
                 {
-                    log.debug("ValidateConfig: invalid value for serverTimeout setting value to 120");
+                    log.Debug("ValidateConfig: invalid value for serverTimeout setting value to 120; exact message is " + ex.Message);
                     dConfig["serverTimeout"] = "120";
                 }
             }
@@ -343,7 +343,7 @@ namespace SmartConnect
             }
         }
 
-        public String GetAPString(String apMAC)
+        public String GetAPNameOrMacString(String apMAC)
         {
             if (dAPs.ContainsKey(apMAC)) return dAPs[apMAC].GetListString();
             else return apMAC;
@@ -354,7 +354,7 @@ namespace SmartConnect
             lock (dNetData) dNetData = newNetData;
         }
 
-        public String GetNetData()
+        public String GetJsonNetData()
         {
             String jsonNetData = "";
             lock (dNetData) jsonNetData = JsonConvert.SerializeObject(dNetData, Formatting.Indented);
@@ -407,7 +407,7 @@ namespace SmartConnect
                         {
                             if (Convert.ToBoolean(xSharedKey.Element(xNS + "protected").Value))
                             {
-                                strSharedKey = Utility.HexStr2String(xSharedKey.Element(xNS + "keyMaterial").Value);
+                                strSharedKey = SCUtility.HexStr2String(xSharedKey.Element(xNS + "keyMaterial").Value);
                             }
                             else
                             {
@@ -532,7 +532,7 @@ namespace SmartConnect
                 }
                 updaterNetStatus.Update();
             }
-            else log.error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
+            else log.Error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
         }
 
         public String GetPostSessionData()
@@ -582,7 +582,7 @@ namespace SmartConnect
             }
             catch (Exception ex)
             {
-                log.error("WiFiConnect.Save: " + ex.Message);
+                log.Error("WiFiConnect.Save: " + ex.Message);
             }
         }
 
@@ -590,11 +590,9 @@ namespace SmartConnect
         {
             Save();
 
-            
-
-            if (updateThread != null)
+            if (updateServerThread != null)
             {
-                if(updateThread.IsAlive) updateThread.Abort();
+                if(updateServerThread.IsAlive) updateServerThread.Abort();
             }
             if (sendErrorThread != null)
             {
@@ -612,7 +610,7 @@ namespace SmartConnect
 
         public void Update()
         {
-            updater.Update();
+            updaterServer.Update();
         }
 
     }

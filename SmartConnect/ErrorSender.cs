@@ -11,53 +11,48 @@ using Newtonsoft.Json;
 
 namespace SmartConnect
 {
-    class ErrorSender
+    class ErrorSender : Sender
     {
-        int timeout;
-        String serverIP;
-        WebClient sendErrors;
-        Uri urlSend;
-        WiFiConnect main;
+        String jsonErrors;
 
-        public ErrorSender(int timeout, String serverIP, WiFiConnect main)
+        public ErrorSender(int timeout, String serverIP, WiFiConnect main) :
+            base(timeout, 0, serverIP, main, Sender.URLStart + serverIP + "/log.php")
+        { jsonErrors = ""; }
+
+        override public void Run()
         {
-            this.timeout = timeout;
-            this.serverIP = serverIP;
-            this.main = main;
-            
-            sendErrors = new WebClient();
-            String strURL = "http://" + serverIP + "/log.php";
-            urlSend = new Uri(strURL);
-            
+            try
+            {
+                for (; ; )
+                {
+                    jsonErrors = main.Log.GetQueuedErrorsJson();
+                    if (jsonErrors.Equals(""))
+                    {
+                        if (Monitor.TryEnter(main.Log.ErrorQueueNotEmpty))
+                        {
+                            Monitor.Wait(main.Log.ErrorQueueNotEmpty);
+                        }
+                    }
+                    else
+                    {
+                        if (Monitor.TryEnter(main.Log.ErrorQueueNotEmpty))
+                        {
+                            Send();
+                            Monitor.Exit(main.Log.ErrorQueueNotEmpty);
+                        }
+                    }
+
+                }
+            }
+            finally
+            {
+                Stop();
+            }
         }
 
-        public void Run()
+        override public void Send()
         {
-           for (; ; )
-           {
-               String jsonErrors = main.Log.getQueuedErrors();
-               if (jsonErrors.Equals(""))
-               {
-                   if (Monitor.TryEnter(main.Log.ErrorQueueNotEmpty))
-                   {
-                       Monitor.Wait(main.Log.ErrorQueueNotEmpty);
-                   }
-               }
-               else
-               {
-                   if(Monitor.TryEnter(main.Log.ErrorQueueNotEmpty))
-                   {
-                       Send(jsonErrors);
-                       Monitor.Exit(main.Log.ErrorQueueNotEmpty);
-                   }
-               }
-
-           }
-        }
-
-        public void Send(String jsonErrors)
-        {
-            if (!sendErrors.IsBusy)
+            if (!sendClient.IsBusy)
             {
                 String postData = "json=" + WebUtility.UrlEncode(jsonErrors) + "&type=error";
                 postData += "&" + main.GetPostSessionData();
@@ -66,12 +61,12 @@ namespace SmartConnect
 
                 try
                 {
-                    sendErrors.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                    results = sendErrors.UploadString(urlSend, postData);
+                    sendClient.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                    results = sendClient.UploadString(urlSend, postData);
                 }
                 catch (WebException ex)
                 {
-                    main.Log.error("ErrorSender: Send - " + ex.Message);
+                    main.Log.Error("ErrorSender: Send - " + ex.Message);
                 }
                 try
                 {
@@ -79,7 +74,7 @@ namespace SmartConnect
                 }
                 catch (FormatException ex)
                 {
-                    main.Log.error(ex.Message + " and: " + results);
+                    main.Log.Error(ex.Message + " and: " + results);
                 }
                 finally
                 {
