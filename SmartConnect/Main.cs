@@ -79,6 +79,39 @@ namespace SmartConnect
             else bConnect.Text = mesg;
         }
 
+        public void TSSetLocation(String loc)
+        {
+            if (lblLocation.InvokeRequired) lblLocation.Invoke(new Action<String>(TSSetLocation), new Object[] {loc });
+            else lblLocation.Text = loc;
+        }
+
+        public void TSSetStatus(String status)
+        {
+            if (lblStatus.InvokeRequired) lblStatus.Invoke(new Action<String>(TSSetStatus), new Object[] { status });
+            else lblStatus.Text = status;
+        }
+
+        public void TSSetBytesR(String bytes)
+        {
+            if (lblDown.InvokeRequired) lblDown.Invoke(new Action<String>(TSSetBytesR), new Object[] { bytes });
+            else lblDown.Text = bytes;
+        }
+        public void TSSetBytesS(String bytes)
+        {
+            if (lblUp.InvokeRequired) lblUp.Invoke(new Action<String>(TSSetBytesS), new Object[] { bytes });
+            else lblUp.Text = bytes;
+        }
+        public void TSSetBytesRAvg(String bytes)
+        {
+            if (lblAvgDown.InvokeRequired) lblAvgDown.Invoke(new Action<String>(TSSetBytesRAvg), new Object[] { bytes });
+            else lblAvgDown.Text = bytes;
+        }
+        public void TSSetBytesSAvg(String bytes)
+        {
+            if (lblAvgUp.InvokeRequired) lblAvgUp.Invoke(new Action<String>(TSSetBytesSAvg), new Object[] { bytes });
+            else lblAvgUp.Text = bytes;
+        }
+        
         public void TSSetSSIDs(String[] aSSIDs, int connected)
         {
             if (cbSSID.InvokeRequired) cbSSID.Invoke(new Action<String[], int>(TSSetSSIDs),new Object[] {aSSIDs,connected});
@@ -87,7 +120,7 @@ namespace SmartConnect
                 if (connected == -1) connected = cbSSID.SelectedIndex;
                 cbSSID.Items.Clear();
                 cbSSID.Items.AddRange(aSSIDs);
-                cbSSID.SelectedIndex = connected;
+                if((aSSIDs.Length)>connected) cbSSID.SelectedIndex = connected;
 
             }
         }
@@ -100,7 +133,7 @@ namespace SmartConnect
                 if (connected == -1) connected = cbAP.SelectedIndex;
                 cbAP.Items.Clear();
                 cbAP.Items.AddRange(aAPs);
-                cbAP.SelectedIndex = connected;
+                if(aAPs.Length>connected) cbAP.SelectedIndex = connected;
 
             }
         }
@@ -252,5 +285,6 @@ namespace SmartConnect
             }
 
         }
+
     }
 }

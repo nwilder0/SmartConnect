@@ -272,10 +272,13 @@ namespace SmartConnect
 
         public void Update()
         {
-            if (!checkForConfigUpdates.IsBusy) checkForConfigUpdates.DownloadStringAsync(urlConfigUpdate);
-            if (!checkForSSIDUpdates.IsBusy) checkForSSIDUpdates.DownloadStringAsync(urlSSIDUpdate);
-            if (!checkForAPUpdates.IsBusy) checkForAPUpdates.DownloadStringAsync(urlAPUpdate);
-            if (!checkForLinkUpdates.IsBusy) checkForLinkUpdates.DownloadStringAsync(urlLinkUpdate);
+            if ((main.Iface != null) && (main.State == WiFiConnect.WiFiState.Connected) && (main.Location == WiFiConnect.NetLocation.Local))
+            {
+                if (!checkForConfigUpdates.IsBusy) checkForConfigUpdates.DownloadStringAsync(urlConfigUpdate);
+                if (!checkForSSIDUpdates.IsBusy) checkForSSIDUpdates.DownloadStringAsync(urlSSIDUpdate);
+                if (!checkForAPUpdates.IsBusy) checkForAPUpdates.DownloadStringAsync(urlAPUpdate);
+                if (!checkForLinkUpdates.IsBusy) checkForLinkUpdates.DownloadStringAsync(urlLinkUpdate);
+            }
         }
 
         public void Save()

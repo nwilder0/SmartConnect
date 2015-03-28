@@ -18,6 +18,34 @@ namespace SmartConnect
     {
         static readonly String filenameConfig = "config.json";
 
+        public enum WiFiState
+        {
+            NoWirelessInterface=1,
+            Disconnected,
+            Disconnecting,
+            Connecting,
+            Connected
+        }
+
+        public enum NetLocation
+        {
+            Unknown=1,
+            Foreign,
+            Local
+        }
+
+        WiFiState state;
+        public WiFiState State
+        {
+            get { return state; }
+        }
+
+        NetLocation location;
+        public NetLocation Location
+        {
+            get { return location; }
+        }
+
         Main frmMain = null;
         public Main MainForm
         {
@@ -40,6 +68,17 @@ namespace SmartConnect
         }
 
         WlanClient wClient;
+        WlanClient.WlanInterface wlanIface;
+        public WlanClient.WlanInterface Iface
+        {
+            get { return wlanIface; }
+            set { wlanIface = value; }
+        }
+
+        long lastBytesReceived = 0;
+        long lastBytesSent = 0;
+        long lastTimeBytes = 0;
+        long averageBandwidthInterval = 10;
 
         // need: add AP/SSID data to updater
         // need: add refresh AP list to NetStatusUpdater
@@ -126,6 +165,8 @@ namespace SmartConnect
             
             Load("all");
             Config8021X();
+
+            SetWirelessConnection();
 
             int updateInterval=0, updateTimeout=300;
 
@@ -341,6 +382,23 @@ namespace SmartConnect
             {
                 dConfig["serverTimeout"] = "120";
             }
+
+            if (dConfig.ContainsKey("averageBandwidthInterval"))
+            {
+                try
+                {
+                    averageBandwidthInterval = Convert.ToInt64(dConfig["averageBandwidthInterval"]);
+                }
+                catch (FormatException ex)
+                {
+                    log.Debug("ValidateConfig: invalid value for averageBandwidthInterval, setting value to 10 (minutes); exact message is " + ex.Message);
+                    dConfig["averageBandwidthInterval"] = "10";
+                }
+            }
+            else
+            {
+                dConfig["averageBandwidthInterval"] = "10";
+            }
         }
 
         public String GetAPNameOrMacString(String apMAC)
@@ -466,50 +524,169 @@ namespace SmartConnect
             }
         }
 
-        public WlanClient.WlanInterface GetWirelessConnection()
+        public void SetWirelessConnection()
         {
             WlanClient.WlanInterface iface = null;
             lock (wClient)
             {
-                foreach (WlanClient.WlanInterface wlanIface in wClient.Interfaces)
+                foreach (WlanClient.WlanInterface wIface in wClient.Interfaces)
                 {
                     if (iface == null)
                     {
-                        iface = wlanIface;
+                        iface = wIface;
                     }
                     else
                     {
-                        if (wlanIface.InterfaceName == "Wireless Network Connection") iface = wlanIface;
+                        if (wIface.InterfaceName == "Wireless Network Connection") iface = wIface;
                     }
                 }
             }
-            return iface;
+            wlanIface = iface;
+            if (wlanIface != null) lock (wlanIface) { wlanIface.WlanNotification += WlanEventHandler; }
+            SetState();
+        }
+
+        public void SetState()
+        {
+            String strState = "";
+            if (wlanIface == null)
+            {
+                state = WiFiState.NoWirelessInterface;
+                strState = "WiFi Not Available";
+            }
+            else
+            {
+                lock (wlanIface)
+                {
+                    switch (wlanIface.InterfaceState)
+                    {
+                        case Wlan.WlanInterfaceState.Connected:
+                            state = WiFiState.Connected;
+                            strState = "Connected";
+                            break;
+                        case Wlan.WlanInterfaceState.Disconnected:
+                            state = WiFiState.Disconnected;
+                            strState = "Disconnected";
+                            break;
+                        case Wlan.WlanInterfaceState.Disconnecting:
+                            state = WiFiState.Disconnecting;
+                            strState = "Disconnecting";
+                            break;
+                        case Wlan.WlanInterfaceState.NotReady:
+                            state = WiFiState.NoWirelessInterface;
+                            strState = "WiFi Not Available";
+                            break;
+                        case Wlan.WlanInterfaceState.Associating:
+                        case Wlan.WlanInterfaceState.Authenticating:
+                            state = WiFiState.Connecting;
+                            strState = "Connecting";
+                            break;
+                    }
+                }
+            }
+
+            if (state == WiFiState.Connected)
+            {
+                SetBandwidth(wlanIface.NetworkInterface.GetIPStatistics().BytesReceived, wlanIface.NetworkInterface.GetIPStatistics().BytesSent);
+            }
+            else
+            {
+                SetBandwidth(-1, -1);
+            }
+
+            frmMain.TSSetStatus(strState);
+
+        }
+
+        public void SetLocation(NetLocation loc)
+        {
+            if (state == WiFiState.NoWirelessInterface)
+            {
+                location = NetLocation.Unknown;
+            }
+            else
+            {
+                location = loc;
+            }
+            String strLoc = "";
+            switch (location)
+            {
+                case NetLocation.Unknown:
+                    strLoc = "Unknown - WiFi Not Available";
+                    break;
+                case NetLocation.Foreign:
+                    strLoc = "Not at " + Setting("internalLocationName");
+                    break;
+                case NetLocation.Local:
+                    strLoc = Setting("internalLocationName");
+                    break;
+            }
+            frmMain.TSSetLocation(strLoc);
+        }
+
+        private void SetBandwidth(long recieved, long sent)
+        {
+            String strSent = "";
+            String strRecieved = "";
+            String strSentAvg = "";
+            String strRecievedAvg = "";
+
+            if ((recieved < 0) || (sent < 0) || (wlanIface == null))
+            {
+                lastBytesReceived = 0;
+                lastBytesSent = 0;
+                lastTimeBytes = 0;
+            }
+            else
+            {
+                Thread.Sleep(50);
+                
+                long recievedNew = wlanIface.NetworkInterface.GetIPStatistics().BytesReceived;
+                long sentNew = wlanIface.NetworkInterface.GetIPStatistics().BytesSent;
+                strRecieved = SCUtility.BytesDisplayString(((double)(recievedNew - recieved)) / 0.05,false) + "/s";
+                strSent = SCUtility.BytesDisplayString(((double)(sentNew - sent)) / 0.05, false) + "/s";
+                
+                long timeNow = (System.Diagnostics.Stopwatch.GetTimestamp()) / (TimeSpan.TicksPerMillisecond);
+                
+                if (lastTimeBytes == 0) lastTimeBytes = timeNow - 50;
+                if (lastBytesReceived == 0) lastBytesReceived = recieved;
+                if (lastBytesSent == 0) lastBytesSent = sent;
+                
+                double diffSecs = ((double)(timeNow - lastTimeBytes)) / 1000;
+                strRecievedAvg = SCUtility.BytesDisplayString(((double)(recievedNew - lastBytesReceived)) / diffSecs, false) + "/s";
+                strSentAvg = SCUtility.BytesDisplayString(((double)(sentNew - lastBytesSent)) / diffSecs, false) + "/s";
+ 
+            }
+
+            frmMain.TSSetBytesR(strRecieved);
+            frmMain.TSSetBytesRAvg(strRecievedAvg);
+            frmMain.TSSetBytesS(strSent);
+            frmMain.TSSetBytesSAvg(strSentAvg);
+
         }
 
         public void ConnectOrDisconnect()
         {
-            WlanClient.WlanInterface iface = GetWirelessConnection();
-            if (iface != null)
+            if (wlanIface != null)
             {
-                if (iface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
-                    iface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)
+                if (wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
+                    wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)
                 {
                     Connect("", null);
                 }
                 else
                 {
-                    iface.Disconnect();
+                    wlanIface.Disconnect();
                 }
             }
         }
 
         public void Connect(String ssid, String[] bss)
         {
-            WlanClient.WlanInterface iface = GetWirelessConnection();
-            if (iface != null)
+            if (wlanIface != null)
             {
-                    if (!(iface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
-                        iface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)) iface.Disconnect();
+                if (!(wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
+                        wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)) wlanIface.Disconnect();
 
                     String tmpSelectedSSID = frmMain.TSGetSelectedSSID();
                     ssid = tmpSelectedSSID.Substring(0, tmpSelectedSSID.IndexOf("(") - 1);
@@ -545,16 +722,15 @@ namespace SmartConnect
                             {
                                 bssMacs[i++] = SCUtility.MAC2Bytes(mac);
                             }
-                            iface.ConnectSynchronouslyBSS(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, bssMacs, profileName, 5000);
+                            wlanIface.ConnectBSS(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, bssMacs, profileName);
                         }
                         else
                         {
-                            iface.ConnectSynchronously(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, profileName, 5000);
+                            wlanIface.Connect(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, profileName);
                         }
 
                     }
                 }
-                updaterNetStatus.Update();
             }
 
             else log.Error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
@@ -570,31 +746,108 @@ namespace SmartConnect
             String os = Environment.OSVersion.ToString();
             String mac = "";
 
-            WlanClient.WlanInterface iface = GetWirelessConnection();
-
-            lock (iface)
+            if (wlanIface != null)
             {
-                mac = iface.NetworkInterface.GetPhysicalAddress().ToString();
-
-                if (iface.InterfaceState == Wlan.WlanInterfaceState.Connected)
+                lock (wlanIface)
                 {
-                    connectedSSID = Encoding.ASCII.GetString(iface.CurrentConnection.wlanAssociationAttributes.dot11Ssid.SSID).Replace("\0", "");
-                    connectedAP = iface.CurrentConnection.wlanAssociationAttributes.Dot11Bssid.ToString();
-                    connectedTime = iface.NetworkInterface.GetIPProperties().UnicastAddresses[0].DhcpLeaseLifetime.ToString();
-                    foreach(System.Net.NetworkInformation.UnicastIPAddressInformation addr in iface.NetworkInterface.GetIPProperties().UnicastAddresses)
+                    mac = wlanIface.NetworkInterface.GetPhysicalAddress().ToString();
+
+                    if (wlanIface.InterfaceState == Wlan.WlanInterfaceState.Connected)
                     {
-                        if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        connectedSSID = Encoding.ASCII.GetString(wlanIface.CurrentConnection.wlanAssociationAttributes.dot11Ssid.SSID).Replace("\0", "");
+                        connectedAP = wlanIface.CurrentConnection.wlanAssociationAttributes.Dot11Bssid.ToString();
+                        connectedTime = wlanIface.NetworkInterface.GetIPProperties().UnicastAddresses[0].DhcpLeaseLifetime.ToString();
+                        foreach (System.Net.NetworkInformation.UnicastIPAddressInformation addr in wlanIface.NetworkInterface.GetIPProperties().UnicastAddresses)
                         {
-                            ip = addr.Address.ToString();
+                            if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                            {
+                                ip = addr.Address.ToString();
+                            }
                         }
                     }
                 }
+                postData = "mac=" + WebUtility.UrlEncode(mac) + "&ip=" + WebUtility.UrlEncode(ip) + "&os=" + WebUtility.UrlEncode(os) + "&connected_ssid=" +
+                    WebUtility.UrlEncode(connectedSSID) + "&connected_ap=" + WebUtility.UrlEncode(connectedAP) +
+                    "&connected_time=" + WebUtility.UrlEncode(connectedTime);
             }
-            postData = "mac=" + WebUtility.UrlEncode(mac) + "&ip=" + WebUtility.UrlEncode(ip) + "&os=" + WebUtility.UrlEncode(os) + "&connected_ssid=" + 
-                WebUtility.UrlEncode(connectedSSID) + "&connected_ap=" + WebUtility.UrlEncode(connectedAP) + 
-                "&connected_time=" + WebUtility.UrlEncode(connectedTime);
-
             return postData;
+        }
+
+        public void WlanEventHandler(Wlan.WlanNotificationData eventData)
+        {
+            switch (eventData.notificationSource)
+            {
+                case Wlan.WlanNotificationSource.ACM:
+                    switch ((Wlan.WlanNotificationCodeAcm)eventData.notificationCode)
+                    {
+                        case Wlan.WlanNotificationCodeAcm.ConnectionAttemptFail:
+                            log.Debug("ConnectionAttemptFail");
+                            break;
+                        case Wlan.WlanNotificationCodeAcm.ConnectionComplete:
+                            log.Debug("ConnectionComplete");
+                            break;
+                        case Wlan.WlanNotificationCodeAcm.ConnectionStart:
+                            state = WiFiState.Connecting;
+                            updaterNetStatus.Update();
+                            log.Debug("ConnectionStart");
+                            break;
+                        case Wlan.WlanNotificationCodeAcm.Disconnected:
+                            state = WiFiState.Disconnected;
+                            updaterNetStatus.Update();
+                            log.Debug("ACM.Disconnected");
+                            break;
+                        case Wlan.WlanNotificationCodeAcm.Disconnecting:
+                            state = WiFiState.Disconnecting;
+                            updaterNetStatus.Update();
+                            log.Debug("Disconnecting");
+                            break;
+                        case Wlan.WlanNotificationCodeAcm.InterfaceRemoval:
+                            state = WiFiState.NoWirelessInterface;
+                            updaterNetStatus.Update();
+                            log.Debug("InterfaceRemoval");
+                            break;
+
+                    }
+                    break;
+                case Wlan.WlanNotificationSource.MSM:
+                    switch ((Wlan.WlanNotificationCodeMsm)eventData.notificationCode)
+                    {
+                        case Wlan.WlanNotificationCodeMsm.AdapterOperationModeChange:
+                            log.Debug("AdapterOperationModeChange");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.AdapterRemoval:
+                           state = WiFiState.NoWirelessInterface;
+                            updaterNetStatus.Update();
+                            log.Debug("AdapterRemoval");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.SignalQualityChange:
+                            log.Debug("SignalQualityChange");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Associated:
+                            log.Debug("Associated");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Associating:
+                            log.Debug("Associating");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Authenticating:
+                            log.Debug("Authenticating");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Connected:
+                            state = WiFiState.Connected;
+                            updaterNetStatus.Update();
+                            log.Debug("MSM.Connected");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Disassociating:
+                            log.Debug("Disassociating");
+                            break;
+                        case Wlan.WlanNotificationCodeMsm.Disconnected:
+                            state = WiFiState.Disconnected;
+                            updaterNetStatus.Update();
+                            log.Debug("MSM.Disconnected");
+                            break;
+                    }
+                    break;
+            }
         }
 
         public void Save()

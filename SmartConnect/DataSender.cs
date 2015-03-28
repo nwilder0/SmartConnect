@@ -41,37 +41,40 @@ namespace SmartConnect
 
         override public void Send()
         {
-            if (!sendClient.IsBusy)
+            if ((main.Iface != null) && (main.State == WiFiConnect.WiFiState.Connected) && (main.Location == WiFiConnect.NetLocation.Local))
             {
-                String netData = main.GetJsonNetData();
-                if (netData.Equals(""))
+                if (!sendClient.IsBusy)
                 {
-                    Thread.Sleep(5000);
-                    netData = main.GetJsonNetData();
-                }
+                    String netData = main.GetJsonNetData();
+                    if (netData.Equals(""))
+                    {
+                        Thread.Sleep(5000);
+                        netData = main.GetJsonNetData();
+                    }
 
-                String postData = "json=" + WebUtility.UrlEncode(netData) + "&type=data";
-                postData += "&" + main.GetPostSessionData();
-                
-                String results = "";
+                    String postData = "json=" + WebUtility.UrlEncode(netData) + "&type=data";
+                    postData += "&" + main.GetPostSessionData();
 
-                try
-                {
-                    sendClient.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                    results = sendClient.UploadString(urlSend, postData);
-                }
-                catch (WebException ex)
-                {
-                    main.Log.Error("DataSender: Send - " + ex.Message);
-                }
-                try
-                {
-                    int success = Convert.ToInt32(results);
-                    main.Log.Debug(success.ToString() + " lines of network data sent to the server.");
-                } 
-                catch (FormatException ex)
-                {
-                    main.Log.Error(ex.Message + ": results = " + results);
+                    String results = "";
+
+                    try
+                    {
+                        sendClient.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                        results = sendClient.UploadString(urlSend, postData);
+                    }
+                    catch (WebException ex)
+                    {
+                        main.Log.Error("DataSender: Send - " + ex.Message);
+                    }
+                    try
+                    {
+                        int success = Convert.ToInt32(results);
+                        main.Log.Debug(success.ToString() + " lines of network data sent to the server.");
+                    }
+                    catch (FormatException ex)
+                    {
+                        main.Log.Error(ex.Message + ": results = " + results);
+                    }
                 }
             }
         }

@@ -52,34 +52,37 @@ namespace SmartConnect
 
         override public void Send()
         {
-            if (!sendClient.IsBusy)
+            if ((main.Iface != null) && (main.State == WiFiConnect.WiFiState.Connected) && (main.Location == WiFiConnect.NetLocation.Local))
             {
-                String postData = "json=" + WebUtility.UrlEncode(jsonErrors) + "&type=error";
-                postData += "&" + main.GetPostSessionData();
+                if (!sendClient.IsBusy)
+                {
+                    String postData = "json=" + WebUtility.UrlEncode(jsonErrors) + "&type=error";
+                    postData += "&" + main.GetPostSessionData();
 
-                String results = "";
+                    String results = "";
 
-                try
-                {
-                    sendClient.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                    results = sendClient.UploadString(urlSend, postData);
-                }
-                catch (WebException ex)
-                {
-                    main.Log.Error("ErrorSender: Send - " + ex.Message);
-                }
-                try
-                {
-                    int success = Convert.ToInt32(results);
-                }
-                catch (FormatException ex)
-                {
-                    main.Log.Error(ex.Message + " and: " + results);
-                }
-                finally
-                {
-                    List<String> lErrors = JsonConvert.DeserializeObject<List<String>>(jsonErrors);
-                    main.Log.DequeueErrors(lErrors.Count);
+                    try
+                    {
+                        sendClient.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                        results = sendClient.UploadString(urlSend, postData);
+                    }
+                    catch (WebException ex)
+                    {
+                        main.Log.Error("ErrorSender: Send - " + ex.Message);
+                    }
+                    try
+                    {
+                        int success = Convert.ToInt32(results);
+                    }
+                    catch (FormatException ex)
+                    {
+                        main.Log.Error(ex.Message + " and: " + results);
+                    }
+                    finally
+                    {
+                        List<String> lErrors = JsonConvert.DeserializeObject<List<String>>(jsonErrors);
+                        main.Log.DequeueErrors(lErrors.Count);
+                    }
                 }
             }
         }

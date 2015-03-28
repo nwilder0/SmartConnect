@@ -75,6 +75,32 @@ namespace SmartConnect
             return bytes;
         }
 
+        public static string BytesDisplayString(double bytes, bool bitsInstead)
+        {
+            string strBytes = "";
+            string strTail = "B";
+            if (bitsInstead) strTail = "b";
+
+            if (bytes < 1024)
+            {
+                strBytes = bytes.ToString("n0") + " " + strTail;
+            }
+            else if (bytes < (1024 * 1024))
+            {
+                strBytes = (bytes / 1024).ToString("n0") + " K" + strTail;
+            }
+            else if (bytes < (Math.Pow(1024,3)))
+            {
+                strBytes = (bytes / (1024 * 1024)).ToString("n0") + " M" + strTail;
+            }
+            else if (bytes < (Math.Pow(1024,4)))
+            {
+                strBytes = (bytes / (Math.Pow(1024, 3))).ToString("n0") + " G" + strTail;
+            }
+            
+            return strBytes;
+        }
+
         public static int RSSI2SignalPercent(int signalStrength)
         {
             int percent = 0;
