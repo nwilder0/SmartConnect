@@ -127,6 +127,46 @@ namespace NativeWifi
 		public const uint WLAN_CLIENT_VERSION_XP_SP2 = 1;
 		public const uint WLAN_CLIENT_VERSION_LONGHORN = 2;
 
+        // consts and structs to support ConnectBSS
+
+        public const int DOT11_BSSID_LIST_REVISION_1 = 1;
+        public const int NDIS_OBJECT_TYPE_DEFAULT = 0x80;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DOT11_MAC_ADDRESS
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+            public byte[] Dot11MacAddress;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DOT11_BSSID_LIST
+        {
+            public NDIS_OBJECT_HEADER Header;
+            public uint uNumOfEntries;
+            public uint uTotalNumOfEntries;
+            [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 1, ArraySubType = UnmanagedType.Struct)]
+            public DOT11_MAC_ADDRESS[] BSSIDs;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        public struct DOT11_SSID
+        {
+            public uint uSSIDLength;
+            [MarshalAsAttribute(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string ucSSID;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct NDIS_OBJECT_HEADER
+        {
+            public byte Type;
+            public byte Revision;
+            public ushort Size;
+        }
+
+        // End ConnectBSS structs
+
 		[DllImport("wlanapi.dll")]
 		public static extern int WlanOpenHandle(
 			[In] UInt32 clientVersion,

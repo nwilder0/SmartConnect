@@ -64,6 +64,17 @@ namespace SmartConnect
             return mac;
         }
 
+        public static byte[] MAC2Bytes(string mac)
+        {
+            byte[] bytes = new byte[6];
+            string[] strBytes = mac.Split(':');
+            for(int i=0; i<bytes.Length; i++)
+            {
+                bytes[i] = Convert.ToByte(strBytes[i], 16);
+            }
+            return bytes;
+        }
+
         public static int RSSI2SignalPercent(int signalStrength)
         {
             int percent = 0;

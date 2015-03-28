@@ -221,7 +221,7 @@ namespace SmartConnect
 
         private void bConnect_Click(object sender, EventArgs e)
         {
-            wifiConnect.Connect("");
+            wifiConnect.ConnectOrDisconnect();
         }
 
         private void cbSSID_SelectionChangeCommitted(object sender, EventArgs e)
@@ -231,7 +231,26 @@ namespace SmartConnect
                 String tmpSelectedSSID = cbSSID.SelectedItem.ToString();
                 tmpSelectedSSID = tmpSelectedSSID.Substring(0,tmpSelectedSSID.IndexOf("(")-1);
                 wifiConnect.LastSelectedSSID = tmpSelectedSSID;
+                wifiConnect.Connect(tmpSelectedSSID, null);
             }
+        }
+
+        private void cbAP_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            if (cbAP.SelectedItem != null)
+            {
+                String tmpSelected = cbAP.SelectedItem.ToString();
+                String[] arrTmp = tmpSelected.Split(' ');
+
+                String[] bss = new String[1];
+
+                foreach (String item in arrTmp)
+                {
+                    if(item.Contains(":")) bss[0] = item.Replace("(",String.Empty).Replace(")",String.Empty);
+                }
+                wifiConnect.Connect("", bss);
+            }
+
         }
     }
 }

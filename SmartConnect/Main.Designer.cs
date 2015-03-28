@@ -347,6 +347,7 @@
             this.cbAP.Name = "cbAP";
             this.cbAP.Size = new System.Drawing.Size(211, 24);
             this.cbAP.TabIndex = 16;
+            this.cbAP.SelectionChangeCommitted += new System.EventHandler(this.cbAP_SelectionChangeCommitted);
             // 
             // bAnother
             // 

@@ -486,27 +486,38 @@ namespace SmartConnect
             return iface;
         }
 
-        public void Connect(String ssid)
+        public void ConnectOrDisconnect()
         {
             WlanClient.WlanInterface iface = GetWirelessConnection();
             if (iface != null)
             {
-
-                if (iface.InterfaceState == Wlan.WlanInterfaceState.Disconnected || iface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)
+                if (iface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
+                    iface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)
                 {
-                    String tmpSelectedSSID = frmMain.TSGetSelectedSSID();
-                    ssid = tmpSelectedSSID.Substring(0, tmpSelectedSSID.IndexOf("(") - 1); 
-                    if (ssid.Equals("")) ssid = lastSelectedSSID;
-                    
+                    Connect("", null);
                 }
                 else
                 {
                     iface.Disconnect();
                 }
+            }
+        }
+
+        public void Connect(String ssid, String[] bss)
+        {
+            WlanClient.WlanInterface iface = GetWirelessConnection();
+            if (iface != null)
+            {
+                    if (!(iface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
+                        iface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)) iface.Disconnect();
+
+                    String tmpSelectedSSID = frmMain.TSGetSelectedSSID();
+                    ssid = tmpSelectedSSID.Substring(0, tmpSelectedSSID.IndexOf("(") - 1);
+                    if (ssid.Equals("")) ssid = lastSelectedSSID;
 
                 if (!ssid.Equals(""))
                 {
-                    if (ssid.IndexOf("(") > 0) ssid = ssid.Substring(0, ssid.IndexOf("(") - 1); 
+                    if (ssid.IndexOf("(") > 0) ssid = ssid.Substring(0, ssid.IndexOf("(") - 1);
                     String profileName = "";
                     if (localSSIDs.ContainsKey(ssid))
                     {
@@ -526,12 +537,26 @@ namespace SmartConnect
                     if (!profileName.Equals(""))
                     {
                         frmMain.TSSetConnectButton("Connecting...");
-                        iface.ConnectSynchronously(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, profileName, 5000);
+                        if (bss != null && bss.Length > 0)
+                        {
+                            byte[][] bssMacs = new byte[bss.Length][];
+                            int i = 0;
+                            foreach (string mac in bss)
+                            {
+                                bssMacs[i++] = SCUtility.MAC2Bytes(mac);
+                            }
+                            iface.ConnectSynchronouslyBSS(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, bssMacs, profileName, 5000);
+                        }
+                        else
+                        {
+                            iface.ConnectSynchronously(Wlan.WlanConnectionMode.Profile, Wlan.Dot11BssType.Any, profileName, 5000);
+                        }
 
                     }
                 }
                 updaterNetStatus.Update();
             }
+
             else log.Error("Error connecting/disconnecting from wireless network: Wireless Interface not found");
         }
 

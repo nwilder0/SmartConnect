@@ -370,6 +370,48 @@ namespace NativeWifi
 					Wlan.WlanConnect(client.clientHandle, info.interfaceGuid, ref connectionParams, IntPtr.Zero));
 			}
 
+            /// <summary>
+            /// Connects to a network using profile and preferred list of APs
+            /// </summary>
+            /// <param name="connectionMode"></param>
+            /// <param name="bssType">Should match the type in the profile</param>
+            /// <param name="bssMacs">The MACs of APs to attempt to connect to</param>
+            /// <param name="profile">profile for the relevant SSID</param>
+            /// mostly taken from https://social.msdn.microsoft.com/Forums/de-DE/d11150ae-9bb7-4e44-9c57-6a411b9772d7/cant-connect-to-a-specific-ap-using-wlanconnect?forum=vistawirelesssdk
+            public void ConnectBSS(Wlan.WlanConnectionMode connectionMode, Wlan.Dot11BssType bssType, byte[][] bssMacs, string profile)
+            {
+                Wlan.WlanConnectionParameters connectionParams = new Wlan.WlanConnectionParameters();
+                connectionParams.wlanConnectionMode = connectionMode;
+                connectionParams.profile = profile;
+                connectionParams.dot11BssType = bssType;
+                connectionParams.flags = 0;
+
+                Wlan.NDIS_OBJECT_HEADER ndoh;// = new Wlan.NDIS_OBJECT_HEADER();
+                ndoh.Type = Wlan.NDIS_OBJECT_TYPE_DEFAULT;
+                ndoh.Revision = Wlan.DOT11_BSSID_LIST_REVISION_1;
+                ndoh.Size = (ushort)System.Runtime.InteropServices.Marshal.SizeOf(typeof(Wlan.DOT11_BSSID_LIST));
+                
+                Wlan.DOT11_BSSID_LIST desBssidList = new Wlan.DOT11_BSSID_LIST();
+                desBssidList.Header = ndoh;
+                desBssidList.uNumOfEntries = (uint)bssMacs.Length;
+                desBssidList.uTotalNumOfEntries = (uint)bssMacs.Length;
+                desBssidList.BSSIDs = new Wlan.DOT11_MAC_ADDRESS[bssMacs.Length];
+                
+                int i = 0;
+                foreach (byte[] bssMac in bssMacs)
+                {
+                    Wlan.DOT11_MAC_ADDRESS bssid = new Wlan.DOT11_MAC_ADDRESS();
+                    bssid.Dot11MacAddress = bssMac;
+                    desBssidList.BSSIDs[i++] = bssid;
+                }
+
+                IntPtr desBssidListPtr = Marshal.AllocHGlobal(Marshal.SizeOf(desBssidList));
+                Marshal.StructureToPtr(desBssidList, desBssidListPtr, false);
+                connectionParams.desiredBssidListPtr = desBssidListPtr;
+                
+                Connect(connectionParams);
+            }
+
 			/// <summary>
 			/// Requests a connection (association) to the specified wireless network.
 			/// </summary>
@@ -435,6 +477,56 @@ namespace NativeWifi
 				}
 				return false; // timeout expired and no "connection complete"
 			}
+
+            /// <summary>
+            /// Connects (associates) to the specified wireless network, returning either on a success to connect
+            /// or a failure.
+            /// </summary>
+            /// <param name="connectionMode"></param>
+            /// <param name="bssType"></param>
+            /// <param name="profile"></param>
+            /// <param name="connectTimeout"></param>
+            /// <returns></returns>
+            public bool ConnectSynchronouslyBSS(Wlan.WlanConnectionMode connectionMode, Wlan.Dot11BssType bssType, byte[][] bssMacs, string profile, int connectTimeout)
+            {
+                queueEvents = true;
+                try
+                {
+                    ConnectBSS(connectionMode, bssType, bssMacs, profile);
+                    while (queueEvents && eventQueueFilled.WaitOne(connectTimeout, true))
+                    {
+                        lock (eventQueue)
+                        {
+                            while (eventQueue.Count != 0)
+                            {
+                                object e = eventQueue.Dequeue();
+                                if (e is WlanConnectionNotificationEventData)
+                                {
+                                    WlanConnectionNotificationEventData wlanConnectionData = (WlanConnectionNotificationEventData)e;
+                                    // Check if the conditions are good to indicate either success or failure.
+                                    if (wlanConnectionData.notifyData.notificationSource == Wlan.WlanNotificationSource.ACM)
+                                    {
+                                        switch ((Wlan.WlanNotificationCodeAcm)wlanConnectionData.notifyData.notificationCode)
+                                        {
+                                            case Wlan.WlanNotificationCodeAcm.ConnectionComplete:
+                                                if (wlanConnectionData.connNotifyData.profileName == profile)
+                                                    return true;
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    queueEvents = false;
+                    eventQueue.Clear();
+                }
+                return false; // timeout expired and no "connection complete"
+            }
 
 			/// <summary>
 			/// Connects to the specified wireless network.
