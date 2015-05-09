@@ -1,0 +1,62 @@
+{
+  "AU-Student": {
+    "Name": "AU-Student",
+    "Role": "default",
+    "Type": "common",
+    "Broadcast": true,
+    "Authentication": "WPA2",
+    "Encryption": "AES",
+    "UseOneX": true,
+    "SharedKey": "",
+    "Dot1XTemplateFilename": "dot1X.xml",
+    "DefaultSSID": false
+  },
+  "AU-VIP": {
+    "Name": "AU-VIP",
+    "Role": "VIP",
+    "Type": "common",
+    "Broadcast": false,
+    "Authentication": "WPA2",
+    "Encryption": "AES",
+    "UseOneX": true,
+    "SharedKey": "",
+    "Dot1XTemplateFilename": "dot1X.xml",
+    "DefaultSSID": false
+  },
+  "AU-Admin": {
+    "Name": "AU-Admin",
+    "Role": "role",
+    "Type": "role",
+    "Broadcast": true,
+    "Authentication": "WPA2",
+    "Encryption": "AES",
+    "UseOneX": true,
+    "SharedKey": "",
+    "Dot1XTemplateFilename": "dot1X.xml",
+    "DefaultSSID": false
+  },
+  "AU-Faculty": {
+    "Name": "AU-Faculty",
+    "Role": "location",
+    "Type": "role",
+    "Broadcast": true,
+    "Authentication": "WPA2",
+    "Encryption": "AES",
+    "UseOneX": true,
+    "SharedKey": "",
+    "Dot1XTemplateFilename": "dot1X.xml",
+    "DefaultSSID": false
+  },
+  "AU-Staff": {
+    "Name": "AU-Staff",
+    "Role": "location",
+    "Type": "role",
+    "Broadcast": true,
+    "Authentication": "WPA2",
+    "Encryption": "AES",
+    "UseOneX": true,
+    "SharedKey": "",
+    "Dot1XTemplateFilename": "dot1X.xml",
+    "DefaultSSID": false
+  }
+}

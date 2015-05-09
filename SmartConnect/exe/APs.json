@@ -1,0 +1,38 @@
+{
+  "AA:AA:BB:BB:CC:CC": {
+    "Name": "Room 109-1",
+    "MAC": "AA:AA:BB:BB:CC:CC",
+    "CurrentClients": 5,
+    "MaxClients": 15,
+    "IsLockable": true,
+    "SSIDs": [
+      "AU-109-1",
+      "AU-VIP",
+      "AU-Guest"
+    ]
+  },
+  "BB:BB:AA:AA:CC:CC": {
+    "Name": "Room 109-2",
+    "MAC": "BB:BB:AA:AA:CC:CC",
+    "CurrentClients": 0,
+    "MaxClients": 15,
+    "IsLockable": true,
+    "SSIDs": [
+      "AU-109-2",
+      "AU-VIP",
+      "AU-Guest"
+    ]
+  },
+  "CC:CC:BB:BB:AA:AA": {
+    "Name": "Entry Hall 1",
+    "MAC": "CC:CC:BB:BB:AA:AA",
+    "CurrentClients": 18,
+    "MaxClients": 25,
+    "IsLockable": false,
+    "SSIDs": [
+      "WiFi-AU",
+      "AU-VIP",
+      "AU-Guest"
+    ]
+  }
+}
