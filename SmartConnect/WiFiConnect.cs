@@ -394,66 +394,78 @@ namespace SmartConnect
         // update the Config file with the latest values from the server config file
         public void UpdateConfig()
         {
-            // NEED: file error handling
-            String jsonTemplate = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameTemplate"]);
-
-            // NEED: JSON format error handling
-            ConcurrentDictionary<String, String> dTemplate = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonTemplate);
-
-            if (Convert.ToDouble(dTemplate["version"]) > Convert.ToDouble(dConfig["version"]))
+            String tmpFilenameTemplate;
+            if(dConfig.TryGetValue("filenameTemplate", out tmpFilenameTemplate))
             {
-                if (dFlags["autoOverwrite"])
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameTemplate))
                 {
-                    foreach (String key in dTemplate.Keys)
-                    {
-                        dConfig[key] = dTemplate[key];
-                    }
-                }
-                else
-                {
-                    String[] fOverwrites = { "updateInterval", "serverTimeout", "serverIP", "vpnPing", "version", "wifiPing" };
-                    foreach (String field in fOverwrites)
-                    {
-                        dConfig[field] = dTemplate[field];
-                    }
+                    String jsonTemplate = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameTemplate);
 
+                    // NEED: JSON format error handling
+                    ConcurrentDictionary<String, String> dTemplate = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonTemplate);
+
+                    String tmpOldVersion="0", tmpNewVersion="0";
+                    double oldVersion=0, newVersion=0;
+                    bool tmpAutoOverwrite=true;
+                    dFlags.TryGetValue("autoOverwrite", out tmpAutoOverwrite);
+
+                    try { if (dTemplate.TryGetValue("version", out tmpNewVersion)) newVersion = Convert.ToDouble(tmpNewVersion); }
+                    catch (FormatException ex) { log.Error("UpdateConfig: new template config version value is not a double"); }
+
+                    try { if (dConfig.TryGetValue("version", out tmpOldVersion)) oldVersion = Convert.ToDouble(tmpOldVersion); }
+                    catch (FormatException ex) { log.Error("UpdateConfig: old config version value is not a double"); }
+
+                    if (newVersion > oldVersion)
+                    {
+                        log.Debug("UpdateConfig: new version is really newer, updating config");
+
+                        if (tmpAutoOverwrite)
+                        {
+                            foreach (String key in dTemplate.Keys)
+                            {
+                                dConfig[key] = dTemplate[key];
+                            }
+                        }
+                        else
+                        {
+                            String[] fOverwrites = { "updateInterval", "serverTimeout", "serverIP", "vpnPing", "version", "wifiPing", "filenameServerCert" };
+                            foreach (String field in fOverwrites)
+                            {
+                                dConfig[field] = dTemplate[field];
+                            }
+
+                        }
+                        Save();
+                    }
+                    else log.Debug("UpdateConfig: new version is not really newer, skipping update");
                 }
-                Save();
+                else log.Error("UpdateConfig: file specified in filenameTemplate config value does not exist, skipping update");
             }
-            
+            else log.Debug("UpdateConfig: filenameTemplate config value does not exist, skipping update");
         }
 
         public void ValidateConfig()
         {
-            String[] fFlags = { "autoConnect", "smartConnect", "vpnConnect", "autoUpdate", "enableDebug", "disableLinks", "runOnStartup", "sendErrors", "sendNetworkData","autoOverwrite" };
+            String[] fFlags = { "autoConnect", "smartConnect", "vpnConnect", "autoUpdate", "enableDebug", "disableLinks", "disableBandwidth",
+                                  "runOnStartup", "sendErrors", "sendNetworkData","autoOverwrite","defaultUseOneX","defaultNonBroadcast" };
             
             foreach (String key in fFlags)
             {
                 Boolean value = false;
-                if (dConfig.ContainsKey(key))
+                String tmpValue;
+                if (dConfig.TryGetValue(key,out tmpValue))
                 {
-                    try
-                    {
-                        value = Convert.ToBoolean(dConfig[key]);
-                    }
-                    catch (FormatException ex)
-                    {
-                        log.Debug("ValidateConfig: " + key + " exists, but value is not boolean, exact message is " + ex.Message);
-                    }
+                    try { value = Convert.ToBoolean(tmpValue); }
+                    catch (FormatException ex) { log.Debug("ValidateConfig: " + key + " exists, but value is not boolean, exact message is " + ex.Message); }
                 }
-                else
-                {
-                    log.Debug("ValidateConfig: " + key + " does not exist in config file");
-                }
+                else log.Debug("ValidateConfig: " + key + " does not exist in config file");
                 dFlags.TryAdd(key, value);
             }
 
-            if (dConfig.ContainsKey("updateInterval"))
+            String tmpUpdateInterval;
+            if (dConfig.TryGetValue("updateInterval",out tmpUpdateInterval))
             {
-                try
-                {
-                    int interval = Convert.ToInt32(dConfig["updateInterval"]);
-                }
+                try { int interval = Convert.ToInt32(tmpUpdateInterval); }
                 catch (FormatException ex)
                 {
                     log.Debug("ValidateConfig: invalid value for updateInterval setting value to 0; exact message is " + ex.Message);
@@ -462,15 +474,14 @@ namespace SmartConnect
             }
             else
             {
+                log.Debug("ValidateConfig: updateInterval config value not found using 0");
                 dConfig["updateInterval"] = "0";
             }
 
-            if (dConfig.ContainsKey("serverTimeout"))
+            String tmpServerTimeout;
+            if (dConfig.TryGetValue("serverTimeout",out tmpServerTimeout))
             {
-                try
-                {
-                    int interval = Convert.ToInt32(dConfig["serverTimeout"]);
-                }
+                try { int interval = Convert.ToInt32(tmpServerTimeout); }
                 catch (FormatException ex)
                 {
                     log.Debug("ValidateConfig: invalid value for serverTimeout setting value to 120; exact message is " + ex.Message);
@@ -479,15 +490,14 @@ namespace SmartConnect
             }
             else
             {
+                log.Debug("ValidateConfig: serverTimeout config value not found using 120");
                 dConfig["serverTimeout"] = "120";
             }
 
-            if (dConfig.ContainsKey("averageBandwidthInterval"))
+            String tmpAverageBandwidthInterval;
+            if (dConfig.TryGetValue("averageBandwidthInterval", out tmpAverageBandwidthInterval))
             {
-                try
-                {
-                    averageBandwidthInterval = Convert.ToInt64(dConfig["averageBandwidthInterval"]);
-                }
+                try { averageBandwidthInterval = Convert.ToInt64(tmpAverageBandwidthInterval); }
                 catch (FormatException ex)
                 {
                     log.Debug("ValidateConfig: invalid value for averageBandwidthInterval, setting value to 10 (minutes); exact message is " + ex.Message);
@@ -496,6 +506,7 @@ namespace SmartConnect
             }
             else
             {
+                log.Debug("ValidateConfig: averageBandwidthInterval config value not found using 10");
                 dConfig["averageBandwidthInterval"] = "10";
             }
         }
@@ -805,9 +816,10 @@ namespace SmartConnect
                 if (!(wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnected ||
                         wlanIface.InterfaceState == Wlan.WlanInterfaceState.Disconnecting)) wlanIface.Disconnect();
 
-                    String tmpSelectedSSID = frmMain.TSGetSelectedSSID();
-                    ssid = tmpSelectedSSID.Substring(0, tmpSelectedSSID.IndexOf("(") - 1);
-                    if (ssid.Equals("")) ssid = lastSelectedSSID;
+                String tmpSelectedSSID = frmMain.TSGetSelectedSSID();
+                if (tmpSelectedSSID == null || tmpSelectedSSID.Equals("")) ssid = "";
+                else ssid = tmpSelectedSSID.Substring(0, tmpSelectedSSID.IndexOf("(") - 1);
+                if (ssid.Equals("")) ssid = lastSelectedSSID;
 
                 if (!ssid.Equals(""))
                 {
@@ -828,6 +840,7 @@ namespace SmartConnect
                             // add new profile
                         }
                     }
+                    if (profileName == null) profileName = ssid;
                     if (!profileName.Equals(""))
                     {
                         frmMain.TSSetConnectButton("Connecting...");
@@ -847,6 +860,11 @@ namespace SmartConnect
                         }
 
                     }
+                }
+                else
+                {
+                    //wlanIface.Connect(Wlan.WlanConnectionMode.Auto, Wlan.Dot11BssType.Any, "");
+                    // find first visible network with configured profile
                 }
             }
 

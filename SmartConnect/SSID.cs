@@ -118,8 +118,8 @@ namespace SmartConnect
             this.sharedKey = sharedKey;
             this.dot1XTemplateFilename = dot1XTemplateFilename;
 
-            try
-            {
+            //try
+            //{
                 if (xdocProfile == null)
                 {
                     String strTempXML = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dot1XTemplateFilename);
@@ -133,7 +133,7 @@ namespace SmartConnect
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "authentication").Value = authentication;
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "encryption").Value = encryption;
                     xSecurity.Element(xNS + "authEncryption").Element(xNS + "useOneX").Value = useOneX.ToString();
-                    if (!useOneX)
+                    if (!useOneX && !(authentication == "open" && encryption == "none"))
                     {
                         XElement xPSK = new XElement("sharedKey");
                         xPSK.Add("keyType");
@@ -150,18 +150,14 @@ namespace SmartConnect
                 }
                 this.xdocProfile = xdocProfile;
 
-            }
-            catch (Exception ex)
-            {
-                // add logging
-            }
-
+            //}
+            // error handling?
         }
 
         public void SetProfile()
         {
-            try
-            {
+            //try
+            //{
                 if (xdocProfile==null)
                 {
                     xdocProfile = XDocument.Load(AppDomain.CurrentDomain.BaseDirectory + dot1XTemplateFilename);
@@ -189,11 +185,11 @@ namespace SmartConnect
 
 
                 }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
+            //}
+            //catch (Exception ex)
+            //{
+            //    MessageBox.Show(ex.Message);
+            //}
 
         }
 
