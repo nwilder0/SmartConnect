@@ -11,6 +11,7 @@ using NativeWifi;
 using Newtonsoft.Json;
 using System.Windows.Forms;
 using System.Threading;
+using System.IO;
 
 namespace SmartConnect
 {
@@ -122,6 +123,15 @@ namespace SmartConnect
             if (dFlags.ContainsKey(key)) dFlags[key] = value;
             if (dConfig.ContainsKey(key)) dConfig[key] = value.ToString();
         }
+        public void SetCertFile(String strCertFilename)
+        {
+            if (strCertFilename != "")
+            {
+                if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + strCertFilename)) dConfig["filenameServerCert"] = strCertFilename;
+                else log.Error("SetCertFile: attempt to set cert filename before file exists");
+            }
+            else log.Error("SetCertFile: attempt to set blank cert filename");
+        }
 
        
 
@@ -164,47 +174,52 @@ namespace SmartConnect
             wClient = new WlanClient();
             
             Load("all");
-            Config8021X();
 
-            SetWirelessConnection();
+            try { Config8021X(); }
+            catch (Exception ex) { log.Error("Error on WifiConnect constructor Config8021X(): " + ex.Message); }
+
+            try { SetWirelessConnection(); }
+            catch (Exception ex) { log.Error("Error on WifiConnect constructor SetWirelessConnection(): " + ex.Message); }
 
             int updateInterval=0, updateTimeout=300;
 
-            updateInterval = Convert.ToInt32(dConfig["updateInterval"]);
-            updateTimeout = Convert.ToInt32(dConfig["serverTimeout"]);
+            String tmpUpdateInterval,tmpUpdateTimeout,tmpServerIP,tmpFilenameTemplate;
+            try
+            {
+                if (dConfig.TryGetValue("updateInterval", out tmpUpdateInterval)) updateInterval = Convert.ToInt32(tmpUpdateInterval);
+                if (dConfig.TryGetValue("serverTimeout", out tmpUpdateTimeout)) updateTimeout = Convert.ToInt32(tmpUpdateTimeout);
+            }
+            catch (FormatException ex) { log.Error("Error updateInterval in config is not a number, actual message: " + ex.Message); }
 
             updaterNetStatus = new NetStatusUpdater(20, this);
-
             updateNetStatusThread = new Thread(updaterNetStatus.Run);
-
             updateNetStatusThread.Start();
-            
-            updaterServer = new ServerUpdater(updateInterval, updateTimeout, dConfig["serverIP"], dConfig["filenameTemplate"], this);
-            
-            updateServerThread = new Thread(updaterServer.Run);
 
-            if (dFlags["autoUpdate"] && updateTimeout != 0)
+            if (dConfig.TryGetValue("serverIP", out tmpServerIP))
             {
-                updateServerThread.Start();
+                if(dConfig.TryGetValue("filenameTemplate", out tmpFilenameTemplate))
+                {
+                    updaterServer = new ServerUpdater(updateInterval, updateTimeout, tmpServerIP, tmpFilenameTemplate, this);
+                    updateServerThread = new Thread(updaterServer.Run);
+                }
+                else log.Debug("WifiConnect constructor: filenameTemplate config value does not exist, skipping server updater");
+
+                senderErrors = new ErrorSender(updateTimeout, tmpServerIP, this);
+                sendErrorThread = new Thread(senderErrors.Run);
+
+                senderData = new DataSender(updateTimeout, updateInterval, tmpServerIP, this);
+                sendDataThread = new Thread(senderData.Run);
+
+                bool tmpAutoUpdate = false, tmpSendErrors = false, tmpSendNetworkData = false;
+                dFlags.TryGetValue("autoUpdate", out tmpAutoUpdate);
+                dFlags.TryGetValue("sendErrors", out tmpSendErrors);
+                dFlags.TryGetValue("sendNetworkData", out tmpSendNetworkData);
+
+                if (tmpAutoUpdate && updateTimeout != 0) updateServerThread.Start();
+                if (tmpSendErrors) sendErrorThread.Start();
+                if (tmpSendNetworkData) sendDataThread.Start();
             }
-
-            senderErrors = new ErrorSender(updateTimeout, dConfig["serverIP"], this);
-
-            sendErrorThread = new Thread(senderErrors.Run);
-
-            if (dFlags["sendErrors"])
-            {
-                sendErrorThread.Start();
-            }
-
-            senderData = new DataSender(updateTimeout, updateInterval, dConfig["serverIP"], this);
-
-            sendDataThread = new Thread(senderData.Run);
-            if (dFlags["sendNetworkData"])
-            {
-                sendDataThread.Start();
-            }
- 
+            else log.Debug("WifiConnect constructor: serverIP config value does not exist, skipping server updater and senders");
 
         }
 
@@ -220,63 +235,108 @@ namespace SmartConnect
                 {
                     dConfig.Clear();
 
-                    String jsonConfig = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig);
-
-                    dConfig = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonConfig);
+                    if (!File.Exists(AppDomain.CurrentDomain.BaseDirectory + filenameConfig)) BuildConfigFile();
+                    else
+                    {
+                        String jsonConfig = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig);
+                        dConfig = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonConfig);
+                    }
 
                     // load log file
-                    log = new SCLog(dConfig["filenameError"], dConfig["filenameDebug"],
-                        Convert.ToBoolean(dConfig["sendErrors"]), Convert.ToBoolean(dConfig["enableDebug"]));
+                    String tmpFilenameError="error.log", tmpFilenameDebug="debug.log", tmpBool;
+                    bool tmpSendErrors=false, tmpEnableDebug = false;
+                    dConfig.TryGetValue("filenameError", out tmpFilenameError);
+                    dConfig.TryGetValue("filenameDebug", out tmpFilenameDebug);
+                    if (dConfig.TryGetValue("sendErrors", out tmpBool)) tmpSendErrors = Convert.ToBoolean(tmpBool);
+                    if (dConfig.TryGetValue("enableDebug", out tmpBool)) tmpEnableDebug = Convert.ToBoolean(tmpBool);
+
+                    log = new SCLog(tmpFilenameError, tmpFilenameDebug, tmpSendErrors, tmpEnableDebug);
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Early Error before log availability: " + ex.Message);
-                }
+                catch (Exception ex) { MessageBox.Show("Early Error before log availability: " + ex.Message); }
                 
             }
             
             try
             {
+                // load Config
                 if (element.Equals("config") || element.Equals("all"))
                 {
-                    ValidateConfig();
                     // merge in updated server config file
                     UpdateConfig();
+                    // correct strange values
+                    ValidateConfig();
                 }
+                // load Certs
+                if (element.Equals("cert") || element.Equals("all"))
+                {
+                    // read in cert
+                    UpdateCert();
+                }
+                // load Links
                 if (element.Equals("link") || element.Equals("all"))
                 {
                     lock (lLinks) lLinks.Clear();
 
-                    // read in links file
-                    String jsonLinks = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameLinks"]);
+                    String tmpFilenameLinks;
+                    if (dConfig.TryGetValue("filenameLinks", out tmpFilenameLinks))
+                    {
+                        if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameLinks))
+                        {
+                            // read in links file
+                            String jsonLinks = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameLinks);
 
-                    // NEED: JSON format error handling
-                    lock (lLinks) lLinks = JsonConvert.DeserializeObject<List<SCLink>>(jsonLinks);
-                    //update UI
-                    frmMain.TSSetLinks(Links);
+                            // NEED: JSON format error handling
+                            lock (lLinks) lLinks = JsonConvert.DeserializeObject<List<SCLink>>(jsonLinks);
+                            //update UI with public lLinks access (lock included)
+                            frmMain.TSSetLinks(Links);
+                        }
+                        else log.Error("Load: filenameLinks value does not exist in program directory");
+                    }
+                    else log.Debug("Load: trying to update links but no filenameLinks config value found");
                 }
+                // load APs
                 if (element.Equals("ap") || element.Equals("all"))
                 {
                     dAPs.Clear();
-                    // NEED: file error handling
-                    String jsonAPs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameAPs"]);
+                    
+                    String tmpFilenameAPs;
+                    if (dConfig.TryGetValue("filenameAPs", out tmpFilenameAPs))
+                    {
+                        if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameAPs))
+                        {
+                            String jsonAPs = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameAPs);
 
-                    // NEED: JSON format error handling
-                    dAPs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, AP>>(jsonAPs);
+                            // NEED: JSON format error handling
+                            dAPs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, AP>>(jsonAPs);
+                        }
+                        else log.Error("Load: filenameAPs value does not exist in program directory");
+                    }
+                    else log.Debug("Load: trying to update APs but no filenameAPs config value found");
                 }
+                // load SSIDs
                 if (element.Equals("ssid") || element.Equals("all"))
                 {
                     dSSIDs.Clear();
-                    // NEED: file error handling
-                    String jsonSSIDs = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameSSIDs"]);
 
-                    // NEED: JSON format error handling
-                    dSSIDs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, SSID>>(jsonSSIDs);
-                    foreach (SSID ssid in dSSIDs.Values)
+                    String tmpFilenameSSIDs;
+                    if (dConfig.TryGetValue("filenameSSIDs", out tmpFilenameSSIDs))
                     {
-                        ssid.SetProfile();
+                        if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameSSIDs))
+                        {
+                            String jsonSSIDs = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameSSIDs);
+
+                            // NEED: JSON format error handling
+                            dSSIDs = JsonConvert.DeserializeObject<ConcurrentDictionary<String, SSID>>(jsonSSIDs);
+                            foreach (SSID ssid in dSSIDs.Values)
+                            {
+                                ssid.SetProfile();
+                            }
+                        }
+                        else log.Error("Load: filenameSSIDs value does not exist in program directory");
                     }
+                    else log.Debug("Load: trying to update SSIDs but no filenameSSIDs config value found");
                 }
+                // link SSIDs to APs
                 if (element.Equals("ap") || element.Equals("all"))
                 {
                     foreach (AP ap in dAPs.Values)
@@ -285,18 +345,57 @@ namespace SmartConnect
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                log.Error(ex.Message);
-            }
+            catch (Exception ex) { log.Error("Load: generic catch: " + ex.Message); }
 
+        }
+
+        private void BuildConfigFile()
+        {
+            // build essential config file values
+            dConfig["smartConnect"] = "False";
+            dConfig["defaultUseOneX"] = "True";
+            dConfig["mode"] = "basic";
+            dConfig["version"] = "0";
+            dConfig["defaultNonBroadcast"] = "False";
+            dConfig["filenameServerCert"] = "root.cer";
+            dConfig["autoOverwrite"] = "False";
+            dConfig["updateInterval"] = "0";
+            dConfig["serverIP"] = "127.0.0.1";
+            dConfig["averageBandwidthInterval"] = "10";
+            dConfig["sendErrors"] = "True";
+            dConfig["defaultEncryption"] = "AES";
+            dConfig["wifiPing"] = "300";
+            dConfig["username"] = "";
+            dConfig["internalLocationName"] = "SmartConnect Network";
+            dConfig["runOnStartup"] = "False";
+            dConfig["filenameDebug"] = "debug.log";
+            dConfig["internalNetworkName"] = "NoNet";
+            dConfig["disableLinks"] = "True";
+            dConfig["filenameLinks"] = "links.json";
+            dConfig["vpnPing"] = "600";
+            dConfig["filenameAPs"] = "APs.json";
+            dConfig["serverTimeout"] = "120";
+            dConfig["vpnConnect"] = "False";
+            dConfig["lastName"] = "";
+            dConfig["filenameTemplate"] = "template.json";
+            dConfig["disableBandwidth"] = "False";
+            dConfig["filenameError"] = "error.log";
+            dConfig["firstName"] = "";
+            dConfig["autoConnect"] = "False";
+            dConfig["filenameSSIDs"] = "SSIDs.json";
+            dConfig["autoUpdate"] = "True";
+            dConfig["defaultAuthentication"] = "WPA2";
+            dConfig["sendNetworkData"] = "True";
+            dConfig["enableDebug"] = "False";
+
+            Save();
         }
 
         // update the Config file with the latest values from the server config file
         public void UpdateConfig()
         {
             // NEED: file error handling
-            String jsonTemplate = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameTemplate"]);
+            String jsonTemplate = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameTemplate"]);
 
             // NEED: JSON format error handling
             ConcurrentDictionary<String, String> dTemplate = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonTemplate);
@@ -419,28 +518,39 @@ namespace SmartConnect
             return jsonNetData;
         }
 
-        public void Config8021X()
+        public void UpdateCert()
         {
             bool foundCert = false;
-
-            // check root server cert is trusted
-            X509Certificate2 serverCert = new X509Certificate2(X509Certificate2.CreateFromCertFile(AppDomain.CurrentDomain.BaseDirectory + dConfig["filenameServerCert"]));
-            //err: file not found
-
-            X509Store trustedRootCAs = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-            //err: insufficient privleges?
-            trustedRootCAs.Open(OpenFlags.ReadWrite);
-            
-            X509Certificate2Collection arrRootCerts = (X509Certificate2Collection)trustedRootCAs.Certificates;
-
-            foreach (X509Certificate2 cert in arrRootCerts)
+            String tmpFilenameServerCert = "";
+            if (dConfig.TryGetValue("filenameServerCert", out tmpFilenameServerCert))
             {
-                if (cert.Equals(serverCert)) { foundCert = true; }
+                try
+                {
+                    // check root server cert is trusted
+                    X509Certificate2 serverCert = new X509Certificate2(X509Certificate2.CreateFromCertFile(AppDomain.CurrentDomain.BaseDirectory + tmpFilenameServerCert));
+                    //err: file not found
+
+                    X509Store trustedRootCAs = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+                    //err: insufficient privleges?
+                    trustedRootCAs.Open(OpenFlags.ReadWrite);
+
+                    foreach (X509Certificate2 cert in (X509Certificate2Collection)trustedRootCAs.Certificates)
+                    {
+                        if (cert.Equals(serverCert)) { foundCert = true; }
+                    }
+                    // if not add it
+                    if (!foundCert) { trustedRootCAs.Add(serverCert); }
+
+                    trustedRootCAs.Close();
+                }
+                catch (Exception ex) { log.Error("UpdateCert: Error: " + ex.Message); }
             }
-            // if not add it
-            if (!foundCert) { trustedRootCAs.Add(serverCert); }
-            
-            trustedRootCAs.Close();
+            else { log.Debug("UpdateCert: config file does not have filenameServerCert set"); }
+
+        }
+
+        public void Config8021X()
+        {
 
             // for each SSID setup 802.1x
             
@@ -527,6 +637,9 @@ namespace SmartConnect
         public void SetWirelessConnection()
         {
             WlanClient.WlanInterface iface = null;
+            String configIface = "";
+            bool bConfigIface = dConfig.TryGetValue("wirelessInterface",out configIface);
+
             lock (wClient)
             {
                 foreach (WlanClient.WlanInterface wIface in wClient.Interfaces)
@@ -534,6 +647,10 @@ namespace SmartConnect
                     if (iface == null)
                     {
                         iface = wIface;
+                    }
+                    else if (bConfigIface)
+                    {
+                        if (wIface.InterfaceName == configIface) iface = wIface;
                     }
                     else
                     {
@@ -856,7 +973,7 @@ namespace SmartConnect
             {
                 string jsonConfig = JsonConvert.SerializeObject(dConfig, Formatting.Indented);
 
-                System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig, jsonConfig);
+                File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + filenameConfig, jsonConfig);
             }
             catch (Exception ex)
             {
@@ -888,7 +1005,7 @@ namespace SmartConnect
 
         public void Update()
         {
-            updaterServer.Update();
+            if(updaterServer != null) updaterServer.Update();
         }
 
     }

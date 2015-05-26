@@ -18,12 +18,14 @@ namespace SmartConnect
         int timeout,updateInterval;
         String serverIP;
         String filenameTemplate;
-        WebClient checkForConfigUpdates, checkForSSIDUpdates, checkForAPUpdates, checkForLinkUpdates;
+        String baseUpdateURL;
+        String lastCertFile;
+        WebClient checkForConfigUpdates, checkForSSIDUpdates, checkForAPUpdates, checkForLinkUpdates, checkForCertUpdates;
         ConcurrentDictionary<String, String> dConfig;
         ConcurrentDictionary<String, SSID> dSSID;
         ConcurrentDictionary<String, AP> dAP;
         List<SCLink> lLink;
-        Uri urlConfigUpdate, urlSSIDUpdate, urlAPUpdate, urlLinkUpdate;
+        Uri urlConfigUpdate, urlSSIDUpdate, urlAPUpdate, urlLinkUpdate, urlCertUpdate;
         WiFiConnect main;
 
         public ServerUpdater(int updateInterval, int timeout, String serverIP, String filenameTemplate, WiFiConnect main)
@@ -45,12 +47,49 @@ namespace SmartConnect
             checkForAPUpdates.DownloadStringCompleted += CheckForAPUpdates_DownloadStringCompleted;
             checkForLinkUpdates = new WebClient();
             checkForLinkUpdates.DownloadStringCompleted += CheckForLinkUpdates_DownloadStringCompleted;
-            String strURL = "http://" + serverIP + "/update.php?file=";
-            urlConfigUpdate = new Uri(strURL+"config");
-            urlAPUpdate = new Uri(strURL + "ap");
-            urlSSIDUpdate = new Uri(strURL + "ssid");
-            urlLinkUpdate = new Uri(strURL + "link");
+            checkForCertUpdates = new WebClient();
+            checkForCertUpdates.DownloadDataCompleted += CheckForCertUpdates_DownloadDataCompleted;
+            baseUpdateURL = "http://" + serverIP + "/update.php?file=";
+            urlConfigUpdate = new Uri(baseUpdateURL + "config");
+            urlAPUpdate = new Uri(baseUpdateURL + "ap");
+            urlSSIDUpdate = new Uri(baseUpdateURL + "ssid");
+            urlLinkUpdate = new Uri(baseUpdateURL + "link");
             
+        }
+
+        void CheckForCertUpdates_DownloadDataCompleted(object sender, DownloadDataCompletedEventArgs e)
+        {
+            try
+            {
+                Exception ex = e.Error;
+                if (ex is WebException)
+                {
+                    main.Log.Error("Cert Update: Unable to reach server for updates - " + ex.Message);
+                }
+                else
+                {
+                    byte[] bytesCert = e.Result;
+                    if (bytesCert.Length > 0)
+                    {
+                        File.WriteAllBytes(AppDomain.CurrentDomain.BaseDirectory + lastCertFile, bytesCert);
+                        main.SetCertFile(lastCertFile);
+                        main.Load("cert");
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                if (ex is WebException || ex is System.Reflection.TargetInvocationException)
+                {
+                    main.Log.Error("Link Update: Unable to reach server for updates - " + ex.InnerException.Message);
+                }
+                else
+                {
+                    main.Log.Error("Link Update: non-connection error - " + ex.Message);
+                }
+            }
+
         }
 
         void CheckForLinkUpdates_DownloadStringCompleted(object sender, DownloadStringCompletedEventArgs e)
@@ -69,7 +108,7 @@ namespace SmartConnect
                     {
                         List<SCLink> lResult = JsonConvert.DeserializeObject<List<SCLink>>(jsonResult);
                         string jsonString = JsonConvert.SerializeObject(lResult, Formatting.Indented);
-                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameLinks"), jsonString);
+                        File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameLinks"), jsonString);
                         main.Load("link");
                     }
                 }
@@ -104,7 +143,7 @@ namespace SmartConnect
                     {
                         Dictionary<String, AP> dResult = JsonConvert.DeserializeObject<Dictionary<String, AP>>(jsonResult);
                         string jsonString = JsonConvert.SerializeObject(dResult, Formatting.Indented);
-                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameAPs"), jsonString);
+                        File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameAPs"), jsonString);
                         main.Load("ap");
                     }
                 }
@@ -137,7 +176,7 @@ namespace SmartConnect
                     {
                         Dictionary<String, SSID> dResult = JsonConvert.DeserializeObject<Dictionary<String, SSID>>(jsonResult);
                         string jsonString = JsonConvert.SerializeObject(dResult, Formatting.Indented);
-                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameSSIDs"), jsonString);
+                        File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + main.Setting("filenameSSIDs"), jsonString);
                         main.Load("ssid");
                     }
                 }
@@ -186,7 +225,26 @@ namespace SmartConnect
 
                             dConfig = new ConcurrentDictionary<string, string>(dResult);
 
+                            String strCertFile = "";
+
                             Save();
+
+                            if (dConfig.TryGetValue("filenameServerCert",out strCertFile))
+                            {
+                                if (strCertFile != "")
+                                {
+                                    if (!File.Exists(AppDomain.CurrentDomain.BaseDirectory + strCertFile))
+                                    {
+                                        urlCertUpdate = new Uri(baseUpdateURL + "cert&name=" + strCertFile);
+                                        if (!checkForCertUpdates.IsBusy) checkForCertUpdates.DownloadStringAsync(urlCertUpdate);
+                                    }
+                                    else
+                                    {
+                                        main.Log.Debug("Config update: certificate file exists locally, skipping download");
+                                    }
+                                }
+                            }
+
 
                             if (preEmpt)
                             {
@@ -218,7 +276,7 @@ namespace SmartConnect
             // load the json config template
             if (File.Exists(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate))
             {
-                jsonConfig = System.IO.File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate);
+                jsonConfig = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate);
 
                 dConfig = JsonConvert.DeserializeObject<ConcurrentDictionary<String, String>>(jsonConfig);
                 if (!dConfig.ContainsKey("version")) dConfig["version"] = "0";
@@ -285,7 +343,7 @@ namespace SmartConnect
         {
             string jsonConfig = JsonConvert.SerializeObject(dConfig, Formatting.Indented);
 
-            System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate, jsonConfig);
+            File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + filenameTemplate, jsonConfig);
         }
 
         public void Stop()
@@ -294,6 +352,7 @@ namespace SmartConnect
             if (checkForSSIDUpdates.IsBusy) checkForSSIDUpdates.CancelAsync();
             if (checkForLinkUpdates.IsBusy) checkForLinkUpdates.CancelAsync();
             if (checkForConfigUpdates.IsBusy) checkForConfigUpdates.CancelAsync();
+            if (checkForCertUpdates.IsBusy) checkForCertUpdates.CancelAsync();
         }
 
     }
